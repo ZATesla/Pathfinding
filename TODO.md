@@ -19,7 +19,12 @@
     *   GUI allows painting Normal (1.0), Mud (3.0), Water (5.0) terrain costs using keys 1, 2, 3.
     *   Terrain types are visually represented.
     *   Start/End nodes and obstacles reset to default terrain cost.
-8.  Implement Bidirectional Search algorithm.
+8.  Implement Bidirectional Search algorithm. - **COMPLETED**
+    *   Implemented Dijkstra-based bidirectional search.
+    *   Maintains separate open/closed sets for forward and backward searches.
+    *   Path reconstruction combines segments from meeting point.
+    *   Integrated into GUI with 'B' key.
+    *   Basic visualization merges visited/open sets from both searches.
 9.  Implement Jump Point Search (JPS) for grid-based speed-up over A*.
 10. Optimize D* Lite: Implement efficient updates when obstacles change or target moves, instead of full re-computation (current `main.py` does a full replan).
 11. Improve D* Lite `_d_star_open_set_tracker` and `_d_star_pq` handling to avoid global-like variables or pass them more cleanly.

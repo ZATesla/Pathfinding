@@ -11,7 +11,7 @@ CELL_HEIGHT = WINDOW_HEIGHT // GRID_ROWS
 # Pygame specific imports are already at the top (import pygame)
 
 # Core logic imports
-from core_logic import Node, Grid, dijkstra, a_star, run_d_star_lite, heuristic
+from core_logic import Node, Grid, dijkstra, a_star, run_d_star_lite, heuristic, bidirectional_search
 
 # Colors - remain in GUI module
 WHITE = (255, 255, 255)
@@ -116,12 +116,14 @@ def main_gui():
     ALGORITHMS = {
         "A_STAR": a_star,
         "DIJKSTRA": dijkstra,
-        "D_STAR_LITE": run_d_star_lite
+        "D_STAR_LITE": run_d_star_lite,
+        "BIDIRECTIONAL": bidirectional_search # Added Bidirectional
     }
     ALGO_NAMES = { # For display purposes
         "A_STAR": "A*",
         "DIJKSTRA": "Dijkstra",
-        "D_STAR_LITE": "D* Lite"
+        "D_STAR_LITE": "D* Lite",
+        "BIDIRECTIONAL": "Bidirectional Search" # Added Bidirectional
     }
 
     def update_caption():
@@ -147,7 +149,7 @@ def main_gui():
         if mode_text:
             caption = f"{base_caption} | {mode_text}"
         else:
-            bindings = "S:Start, E:End, D:Diag, R:Reset | Algos:K,A,L | Terrain:1(Norm),2(Mud),3(Water) | Enter:Run"
+            bindings = "S:Start, E:End, D:Diag, R:Reset | Algos:K,A,L,B(Bidir) | Terrain:1-3 | Enter:Run"
             if current_algorithm == "D_STAR_LITE":
                 bindings += ", T:Move Target"
             caption = f"{base_caption} | {bindings}"
@@ -197,6 +199,9 @@ def main_gui():
                         current_algorithm = "D_STAR_LITE"
                     elif event.key == pygame.K_k: # Using K for Dijkstra
                         current_algorithm = "DIJKSTRA"
+                        setting_target_d_lite = False
+                    elif event.key == pygame.K_b: # 'B' for Bidirectional
+                        current_algorithm = "BIDIRECTIONAL"
                         setting_target_d_lite = False
 
                     elif event.key == pygame.K_d: # Toggle Diagonal Movement
@@ -255,18 +260,25 @@ def main_gui():
                             print(f"Running {algo_name_display} Algorithm {diag_status_msg} diagonal movement...")
 
                             if current_algorithm == "D_STAR_LITE":
-                                # Heuristic is passed, and it will use grid.allow_diagonal_movement internally
                                 path, visited, open_set = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node, heuristic)
-                            else:
-                                # a_star and dijkstra will also use grid.allow_diagonal_movement via heuristic or get_move_cost
+                                start_animation(path, visited, open_set) # Standard animation
+                            elif current_algorithm == "BIDIRECTIONAL":
+                                # Bidirectional returns: path, visited_fwd, visited_bwd, open_fwd, open_bwd
+                                path, visited_fwd, visited_bwd, open_fwd, open_bwd = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node)
+                                # For now, combine visited and open sets for basic animation.
+                                # TODO: Enhance start_animation or create a new one for distinct bidirectional visualization
+                                combined_visited = visited_fwd + list(set(visited_bwd) - set(visited_fwd)) # Crude merge
+                                combined_open = list(set(open_fwd + open_bwd))
+                                start_animation(path, combined_visited, combined_open)
+                            else: # A*, Dijkstra
                                 path, visited, open_set = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node)
+                                start_animation(path, visited, open_set) # Standard animation
 
                             if path:
                                 print(f"{algo_name_display} Path found. Length: {len(path)}")
-                                start_animation(path, visited, open_set)
                             else:
                                 print(f"{algo_name_display} No path found.")
-                                start_animation([], visited, open_set)
+                                # start_animation is already called above, even for no path
                         else:
                             print("Error: Set Start and End nodes before running an algorithm.")
 

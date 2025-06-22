@@ -17,6 +17,7 @@ The following pathfinding algorithms are implemented:
 - Dijkstra's Algorithm
 - A* (A-Star) Algorithm
 - D* Lite Algorithm
+- Bidirectional Search (Dijkstra-based)
 
 ## Key Controls
 - **Mouse Left Click**:
@@ -24,6 +25,7 @@ The following pathfinding algorithms are implemented:
     - Set End Node (if 'E' mode is active).
     - Set D* Lite Target Node (if 'T' mode is active for D* Lite).
     - Toggle Obstacles (default mode).
+    - Paint Terrain (if terrain paint mode is active: 1, 2, or 3).
 - **S**: Enter "Set Start Node" mode.
 - **E**: Enter "Set End Node" mode.
 - **D**: Toggle diagonal movement ON/OFF.
@@ -32,6 +34,7 @@ The following pathfinding algorithms are implemented:
 - **K**: Select Dijkstra's Algorithm.
 - **A**: Select A* Algorithm.
 - **L**: Select D* Lite Algorithm.
+- **B**: Select Bidirectional Search.
 - **T**: (Only when D* Lite is selected) Enter "Set D* Lite Target Node" mode.
 - **1**: Activate "Paint Normal Terrain" mode (cost 1.0).
 - **2**: Activate "Paint Mud Terrain" mode (cost 3.0).

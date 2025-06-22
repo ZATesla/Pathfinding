@@ -475,3 +475,219 @@ def a_star(grid, start_node, end_node):
     # print("No path found by A*.") # Silenced for tests
     final_open_set = list(open_set_tracker)
     return [], visited_nodes_in_order, final_open_set
+
+
+# --- Bidirectional Search Implementation ---
+def bidirectional_search(grid, start_node, end_node):
+    if not start_node or not end_node or start_node.is_obstacle or end_node.is_obstacle:
+        return [], [], [], [], [] # path, visited_fwd, visited_bwd, open_fwd, open_bwd
+
+    # Attributes for forward search
+    # We'll use existing g, f_score, previous_node for forward.
+    # Need separate tracking for backward search if node attributes are shared.
+    # For simplicity, let's use dictionaries to store g_scores and previous nodes for backward search.
+
+    g_fwd = {node: float('inf') for row in grid.nodes for node in row}
+    g_bwd = {node: float('inf') for row in grid.nodes for node in row}
+
+    prev_fwd = {node: None for row in grid.nodes for node in row}
+    prev_bwd = {node: None for row in grid.nodes for node in row}
+
+    g_fwd[start_node] = 0
+    start_node.f_score = heuristic(start_node, end_node, grid.allow_diagonal_movement) # A* like f_score for forward
+
+    g_bwd[end_node] = 0
+    # For backward search, f_score can be g_bwd + heuristic to start_node
+    # However, basic bidirectional Dijkstra/BFS doesn't strictly need f_scores in open set if just using g.
+    # Let's use g-scores for priority in PQs for simplicity (like Dijkstra).
+
+    pq_fwd = [(0, start_node)] # (g_score, node)
+    pq_bwd = [(0, end_node)]   # (g_score, node)
+
+    # Using sets to track nodes in open_set for quick lookups (complementing heapq)
+    open_set_tracker_fwd = {start_node}
+    open_set_tracker_bwd = {end_node}
+
+    # Using sets to track visited nodes (closed set) for each direction
+    closed_set_fwd = set()
+    closed_set_bwd = set()
+
+    # For visualization
+    visited_nodes_in_order_fwd = []
+    visited_nodes_in_order_bwd = []
+
+    meeting_node = None
+    path_cost = float('inf')
+
+    while pq_fwd and pq_bwd:
+        # Forward search step
+        if pq_fwd:
+            current_g_fwd, current_node_fwd = heapq.heappop(pq_fwd)
+
+            if current_node_fwd not in open_set_tracker_fwd: # Already processed or removed with better path
+                continue
+            open_set_tracker_fwd.remove(current_node_fwd)
+
+            closed_set_fwd.add(current_node_fwd)
+            visited_nodes_in_order_fwd.append(current_node_fwd)
+
+            # Check for meeting point
+            if current_node_fwd in closed_set_bwd:
+                current_path_cost = g_fwd[current_node_fwd] + g_bwd[current_node_fwd]
+                if current_path_cost < path_cost:
+                    path_cost = current_path_cost
+                    meeting_node = current_node_fwd
+                # Termination condition: if current_g_fwd + (g_bwd value from top of pq_bwd if available, else heuristic) > path_cost, can potentially stop
+                # For basic Dijkstra-like expansion, we ensure optimal meeting after both frontiers meet.
+                # A stricter termination uses sum of top keys of PQs. If sum_of_top_keys >= path_cost, stop.
+                # For now, we continue until one PQ is empty or a more robust condition is met.
+                # If the sum of costs of nodes at the top of both queues is >= path_cost, we can stop.
+                if pq_bwd and (current_g_fwd + pq_bwd[0][0] >= path_cost): # Heuristic for pq_bwd[0][0] if it's f-score
+                     break # Found potential shortest path
+
+
+            for neighbor in current_node_fwd.neighbors:
+                if neighbor in closed_set_fwd:
+                    continue
+
+                cost = get_move_cost(current_node_fwd, neighbor)
+                temp_g_fwd = g_fwd[current_node_fwd] + cost
+
+                if temp_g_fwd < g_fwd[neighbor]:
+                    g_fwd[neighbor] = temp_g_fwd
+                    prev_fwd[neighbor] = current_node_fwd
+                    # For Dijkstra-like expansion, f_score in PQ is just g_score
+                    heapq.heappush(pq_fwd, (temp_g_fwd, neighbor))
+                    open_set_tracker_fwd.add(neighbor)
+
+        # Backward search step
+        if pq_bwd:
+            current_g_bwd, current_node_bwd = heapq.heappop(pq_bwd)
+
+            if current_node_bwd not in open_set_tracker_bwd:
+                continue
+            open_set_tracker_bwd.remove(current_node_bwd)
+
+            closed_set_bwd.add(current_node_bwd)
+            visited_nodes_in_order_bwd.append(current_node_bwd)
+
+            if current_node_bwd in closed_set_fwd:
+                current_path_cost = g_fwd[current_node_bwd] + g_bwd[current_node_bwd]
+                if current_path_cost < path_cost:
+                    path_cost = current_path_cost
+                    meeting_node = current_node_bwd
+                if pq_fwd and (current_g_bwd + pq_fwd[0][0] >= path_cost):
+                    break
+
+            for neighbor in current_node_bwd.neighbors:
+                if neighbor in closed_set_bwd:
+                    continue
+
+                # Cost is from neighbor to current_node_bwd (reverse of edge)
+                cost = get_move_cost(neighbor, current_node_bwd)
+                temp_g_bwd = g_bwd[current_node_bwd] + cost
+
+                if temp_g_bwd < g_bwd[neighbor]:
+                    g_bwd[neighbor] = temp_g_bwd
+                    prev_bwd[neighbor] = current_node_bwd
+                    heapq.heappush(pq_bwd, (temp_g_bwd, neighbor))
+                    open_set_tracker_bwd.add(neighbor)
+
+        if not pq_fwd or not pq_bwd: # One queue is empty, no path possible through further expansion
+            break
+
+
+    # Path reconstruction
+    final_path = []
+    if meeting_node:
+        # Reconstruct forward path
+        temp = meeting_node
+        while temp:
+            final_path.append(temp)
+            temp = prev_fwd[temp]
+        final_path.reverse() # Path from start to meeting_node
+
+        # Reconstruct backward path and append (excluding meeting_node itself)
+        temp = prev_bwd[meeting_node] # Start from node before meeting_node in backward path
+        while temp:
+            final_path.append(temp)
+            temp = prev_bwd[temp]
+        # The backward path segment is naturally from meeting_node's predecessor towards end_node's predecessor.
+        # It needs to be appended correctly.
+        # Example: S->A->M and E->B->M. Path S->A->M->B->E
+        # prev_fwd: M->A, A->S. Reversed: S->A->M
+        # prev_bwd: M->B, B->E. We need M, then B, then E.
+        # My reconstruction of backward part is adding E...B to S...M. It should be M-B-E.
+        # Let's re-verify path reconstruction for backward part.
+        # Path: S... -> prev_fwd[M] -> M <- prev_bwd[M] <- ...E
+        # Forward part: S -> ... -> prev_fwd[prev_fwd[meeting_node]] -> prev_fwd[meeting_node] -> meeting_node
+        # Backward part: meeting_node <- prev_bwd[meeting_node] <- prev_bwd[prev_bwd[meeting_node]] <- ... <- E
+
+        # Corrected backward path reconstruction:
+        path_segment_bwd = []
+        temp = prev_bwd[meeting_node]
+        while temp: # Iterate from node after meeting point towards end_node
+            path_segment_bwd.append(temp)
+            temp = prev_bwd[temp]
+        # path_segment_bwd is currently [prev_to_meeting_on_bwd_path, ..., end_node_predecessor]
+        # It needs to be reversed to get [end_node_predecessor, ..., prev_to_meeting_on_bwd_path]
+        # No, this is wrong. prev_bwd[node] points to the node *from which we came* to reach 'node' in backward search.
+        # So, if M is meeting node, prev_bwd[M] is the node that expanded M from backward search.
+        # Path from E to M: E ... -> prev_bwd[prev_bwd[M]] -> prev_bwd[M] -> M.
+        # We want M -> prev_bwd[M] -> prev_bwd[prev_bwd[M]] ... -> E.
+        # The list `final_path` already has S...M. We need to append nodes from M towards E.
+        # The current `final_path.append(temp)` for backward path is adding nodes in reverse order of path.
+        # Let's reconstruct backward path separately then reverse and append.
+
+        # path_fwd = final_path.copy() # S...M
+        # path_bwd_segment_reversed = []
+        # temp = meeting_node
+        # # We need the path from M to E. prev_bwd stores "parent" towards E.
+        # # So if M is current, prev_bwd[M] is parent of M in path from E.
+        # # This means if we iterate from M using prev_bwd, we go E...prev(M)...M
+        # # No, prev_bwd[X] = Y means edge Y->X was traversed in backward search (cost from Y to X)
+        # # So g_bwd[X] = g_bwd[Y] + cost(Y,X). Y is closer to E.
+        # # Path: E ... Y -> X. So Y = prev_bwd[X].
+        # # To reconstruct E...M: M, prev_bwd[M], prev_bwd[prev_bwd[M]]... E. Then reverse. This is path_to_meeting_from_end
+        # # To reconstruct M...E: M, (node whose prev_bwd is M), ... E
+        # This is tricky. Let's use the standard way: reconstruct S->M and E->M, then combine.
+
+        path_s_to_m = []
+        curr = meeting_node
+        while curr:
+            path_s_to_m.append(curr)
+            curr = prev_fwd[curr]
+        path_s_to_m.reverse()
+
+        path_e_to_m = []
+        curr = meeting_node
+        while curr: # This will include meeting_node
+            path_e_to_m.append(curr)
+            curr = prev_bwd[curr]
+        path_e_to_m.reverse() # Now E ... -> meeting_node
+
+        # Combine: path_s_to_m (S...M) + path_e_to_m reversed (M_prev ... E) skipping M from second part
+        final_path = path_s_to_m
+        if len(path_e_to_m) > 1: # if meeting_node is not end_node
+            # path_e_to_m is E...prev_of_M...M. We want M...E. So reverse it: M...prev_of_M...E
+            # then take from index 1 (skip M)
+            final_path.extend(path_e_to_m[-2::-1]) # Reversed path_e_to_m, from element before last (M) down to E
+
+
+    # For visualization, we can combine visited nodes.
+    # Open sets are also tricky for direct visualization on Node unless we add more bool flags.
+    # For now, just return the lists of nodes.
+    # The GUI will have to decide how to color these (e.g. forward visited, backward visited, overlap)
+    # For open sets, it's even harder to show simultaneously on node itself.
+    # We return the trackers.
+
+    # Consolidate visited nodes for return (can be used by GUI for coloring)
+    # Order might be interleaved if we want to show step-by-step expansion.
+    # For now, just concatenate. GUI can process visited_nodes_in_order_fwd and _bwd separately if needed.
+    all_visited_for_return = visited_nodes_in_order_fwd + visited_nodes_in_order_bwd # Simplistic merge
+
+    # Similarly for open sets (nodes that were in PQ at the end)
+    final_open_set_fwd = list(open_set_tracker_fwd)
+    final_open_set_bwd = list(open_set_tracker_bwd)
+
+    return final_path, visited_nodes_in_order_fwd, visited_nodes_in_order_bwd, final_open_set_fwd, final_open_set_bwd
