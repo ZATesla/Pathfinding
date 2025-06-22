@@ -240,8 +240,20 @@ def main_gui():
         "JPS": "Jump Point Search" # Added JPS
     }
 
+    # Animation Speed Settings
+    ANIMATION_SPEED_SETTINGS = [
+        {"name": "Instant", "delay": 0},
+        {"name": "Fast", "delay": 10},
+        {"name": "Normal", "delay": 25},
+        {"name": "Slow", "delay": 50},
+        {"name": "Very Slow", "delay": 100}
+    ]
+    current_speed_index = 2 # Default to Normal (25ms)
+    animation_delay_ms = ANIMATION_SPEED_SETTINGS[current_speed_index]["delay"]
+
+
     def update_caption():
-        nonlocal setting_start, setting_end, setting_target_d_lite, current_algorithm, grid_instance, painting_terrain_type
+        nonlocal setting_start, setting_end, setting_target_d_lite, current_algorithm, grid_instance, painting_terrain_type, current_speed_index
         mode_text = ""
         if setting_start:
             mode_text = "Set Start"
@@ -258,7 +270,8 @@ def main_gui():
 
 
         diag_status = "ON" if grid_instance.allow_diagonal_movement else "OFF"
-        base_caption = f"Algorithm: {ALGO_NAMES[current_algorithm]} | Diagonal: {diag_status}"
+        speed_name = ANIMATION_SPEED_SETTINGS[current_speed_index]["name"]
+        base_caption = f"Algorithm: {ALGO_NAMES[current_algorithm]} | Diagonal: {diag_status} | Anim Speed: {speed_name} (+/-)"
 
         if mode_text:
             caption = f"{base_caption} | {mode_text}"
@@ -266,7 +279,7 @@ def main_gui():
             bindings = "S:Start, E:End, D:Diag, R:Reset | Algos:K,A,L,B,J | Terrain:1-3 | F5:Save, F6:Load | Enter:Run"
             if current_algorithm == "D_STAR_LITE":
                 bindings += ", T:Move Target"
-            caption = f"{base_caption} | {bindings}"
+            caption = f"{base_caption} | {bindings}" # Bindings are now part of base_caption or could be appended if too long
         pygame.display.set_caption(caption)
 
     update_caption() # Initial caption
@@ -280,7 +293,7 @@ def main_gui():
         "current_path_step": 0,
         "animation_phase": "stopped" # "visited", "path", "finished"
     }
-    ANIMATION_DELAY_MS = 25
+    # ANIMATION_DELAY_MS = 25 # Replaced by dynamic animation_delay_ms
 
 
     def start_animation(path, visited_nodes_in_order, open_set_nodes):
@@ -343,6 +356,16 @@ def main_gui():
                     elif event.key == pygame.K_0 or event.key == pygame.K_ESCAPE: # Turn off terrain painting
                         painting_terrain_type = 0
                         print("Terrain painting mode OFF")
+
+                    # Animation Speed Control
+                    elif event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS: # Increase speed (decrease delay)
+                        current_speed_index = max(0, current_speed_index - 1)
+                        animation_delay_ms = ANIMATION_SPEED_SETTINGS[current_speed_index]["delay"]
+                        print(f"Animation speed set to: {ANIMATION_SPEED_SETTINGS[current_speed_index]['name']} ({animation_delay_ms}ms delay)")
+                    elif event.key == pygame.K_MINUS: # Decrease speed (increase delay)
+                        current_speed_index = min(len(ANIMATION_SPEED_SETTINGS) - 1, current_speed_index + 1)
+                        animation_delay_ms = ANIMATION_SPEED_SETTINGS[current_speed_index]["delay"]
+                        print(f"Animation speed set to: {ANIMATION_SPEED_SETTINGS[current_speed_index]['name']} ({animation_delay_ms}ms delay)")
 
                     # Save/Load Grid Configuration
                     elif event.key == pygame.K_F5: # F5 to Save
@@ -554,7 +577,7 @@ def main_gui():
                     if node != grid_instance.start_node and node != grid_instance.end_node: # Use grid_instance
                         node.is_visited_by_algorithm = True
                     animation_data["current_visited_step"] += 1
-                    pygame.time.delay(ANIMATION_DELAY_MS)
+                    pygame.time.delay(animation_delay_ms) # Use variable delay
                 else:
                     for node_obj in animation_data["open_set_nodes"]:
                         if node_obj != grid_instance.start_node and node_obj != grid_instance.end_node and \
@@ -571,7 +594,7 @@ def main_gui():
                         node.is_visited_by_algorithm = False
                         node.is_in_open_set_for_algorithm = False
                     animation_data["current_path_step"] += 1
-                    pygame.time.delay(ANIMATION_DELAY_MS)
+                    pygame.time.delay(animation_delay_ms) # Use variable delay
                 else:
                     animation_data["animation_phase"] = "finished"
                     pygame.display.set_caption("Visualization Finished. R to Reset. S:Start, E:End, Space:Dijkstra, A:A*")

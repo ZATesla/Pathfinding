@@ -47,7 +47,10 @@
     *   Saves to/loads from `grid_config.json`.
     *   Includes dimensions, start/end, obstacles, terrain, diagonal settings.
     *   GUI controls: F5 (Save), F6 (Load).
-14. Implement adjustable animation speed for algorithm visualization.
+14. Implement adjustable animation speed for algorithm visualization. - **COMPLETED**
+    *   User can press `+`/`=` to speed up animation (decrease delay) and `-` to slow down (increase delay).
+    *   Cycles through predefined speed levels: Instant, Fast, Normal, Slow, Very Slow.
+    *   Current speed setting displayed in window caption.
 15. Display path length and number of nodes visited/expanded after an algorithm run.
 16. Add a "Clear Path" button to remove only the visualized path/visited nodes without resetting obstacles/start/end.
 17. Improve visual distinction between open set, closed set, and path nodes during/after animation.

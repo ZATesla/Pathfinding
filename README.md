@@ -11,10 +11,10 @@ This project is a Python application that demonstrates various pathfinding algor
 - Toggleable diagonal movement for all algorithms.
 - Ability to "paint" different terrain types (Normal, Mud, Water) with varying movement costs.
 - Save and Load grid configurations (obstacles, start/end points, terrain, diagonal settings) to/from `grid_config.json`.
+- Adjustable animation speed for algorithm visualization.
 - Clear display of the starting point, ending point, obstacles, terrain types, visited nodes, and the final path.
 
 ## Algorithms Implemented
-- Dijkstra's Algorithm
 - A* (A-Star) Algorithm
 - D* Lite Algorithm (with efficient replanning for obstacle/target changes)
 - Bidirectional Search (Dijkstra-based)
@@ -44,6 +44,8 @@ This project is a Python application that demonstrates various pathfinding algor
 - **2**: Activate "Paint Mud Terrain" mode (cost 3.0).
 - **3**: Activate "Paint Water Terrain" mode (cost 5.0).
 - **0** or **ESC**: Deactivate terrain painting mode (return to obstacle toggling).
+- **+**/**=**: Increase animation speed (decrease delay).
+- **-**: Decrease animation speed (increase delay).
 
 ## Usage
 1.  Ensure you have Python and Pygame installed.
