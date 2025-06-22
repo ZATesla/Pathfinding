@@ -691,3 +691,212 @@ def bidirectional_search(grid, start_node, end_node):
     final_open_set_bwd = list(open_set_tracker_bwd)
 
     return final_path, visited_nodes_in_order_fwd, visited_nodes_in_order_bwd, final_open_set_fwd, final_open_set_bwd
+
+
+# --- Jump Point Search (JPS) Implementation ---
+
+def _jps_is_walkable(grid, r, c):
+    """ Helper to check if a node is within bounds and not an obstacle. """
+    if not (0 <= r < grid.rows and 0 <= c < grid.cols):
+        return False
+    return not grid.nodes[r][c].is_obstacle
+
+def _jps_jump(grid, current_r, current_c, dr, dc, start_node, end_node):
+    """
+    Recursively searches for a jump point.
+    dr, dc define the direction from parent to current.
+    """
+    next_r, next_c = current_r + dr, current_c + dc
+
+    if not _jps_is_walkable(grid, next_r, next_c):
+        return None
+
+    next_node = grid.nodes[next_r][next_c]
+    if next_node == end_node:
+        return next_node
+
+    # Check for forced neighbors
+    if dr != 0 and dc != 0: # Diagonal move
+        # Check horizontally
+        if (_jps_is_walkable(grid, next_r - dr, next_c + dc) and not _jps_is_walkable(grid, next_r - dr, next_c)) or \
+           (_jps_is_walkable(grid, next_r + dr, next_c + dc) and not _jps_is_walkable(grid, next_r + dr, next_c)): # This rule seems off for diagonal forced.
+             # Simplified: if horizontal or vertical component could lead to a forced neighbor
+            pass # Revisit forced neighbor logic for diagonal
+
+        # Check for forced neighbors specific to diagonal moves
+        # If moving NE (dr=-1, dc=1):
+        # Forced if obstacle at (r, c-1) [W] AND (r-1, c-1) [SW] is walkable -> (r-1,c+1) [current node] becomes jump point
+        # Forced if obstacle at (r+1, c) [S] AND (r+1, c+1) [SE] is walkable -> (r-1,c+1) [current node] becomes jump point
+        # This needs to be from the perspective of next_node, checking for forced moves from it.
+        # (next_r, next_c) is the node being evaluated. (current_r, current_c) is its parent.
+
+        # Pruning rule for diagonal: check if moving straight horizontally or vertically from (next_r, next_c)
+        # in the components of the diagonal direction leads to a jump point.
+        if _jps_jump(grid, next_r, next_c, dr, 0, start_node, end_node) or \
+           _jps_jump(grid, next_r, next_c, 0, dc, start_node, end_node):
+            return next_node
+    else: # Straight move (horizontal or vertical)
+        if dr != 0: # Vertical move (dr is -1 or 1, dc is 0)
+            # Forced neighbor check: if (r, c+1) is obstacle and (r-dr, c+1) is not obstacle -> (r,c+1) is jump point from (r,c)
+            if (_jps_is_walkable(grid, next_r, next_c + 1) and not _jps_is_walkable(grid, next_r - dr, next_c + 1)) or \
+               (_jps_is_walkable(grid, next_r, next_c - 1) and not _jps_is_walkable(grid, next_r - dr, next_c - 1)):
+                return next_node
+        else: # Horizontal move (dc is -1 or 1, dr is 0)
+            # Forced neighbor check: if (r+1, c) is obstacle and (r+1, c-dc) is not obstacle -> (r+1,c) is jump point
+            if (_jps_is_walkable(grid, next_r + 1, next_c) and not _jps_is_walkable(grid, next_r + 1, next_c - dc)) or \
+               (_jps_is_walkable(grid, next_r - 1, next_c) and not _jps_is_walkable(grid, next_r - 1, next_c - dc)):
+                return next_node
+
+    # If diagonal movement is not allowed, JPS simplifies (but this implementation assumes it can be based on grid setting)
+    if not grid.allow_diagonal_movement and dr != 0 and dc != 0:
+        return None # Cannot make this jump
+
+    #return _jps_jump(grid, next_r, next_c, dr, dc, start_node, end_node) # Continue jump
+    return None # MODIFIED FOR NOW: Prevent recursion error in placeholder
+
+def _jps_identify_successors(grid, current_node, end_node):
+    successors = []
+    # Get pruned neighbors based on direction from parent (not explicitly stored on node for JPS, need to infer)
+    # For now, let's consider all 8 directions if no parent, or pruned if parent exists.
+    # This part is complex and needs parent direction. For a simpler start, assume current_node is from open list.
+    # The parent is current_node.previous_node.
+
+    parent = current_node.previous_node # This is the previous JUMP POINT
+    px, py = (parent.col, parent.row) if parent else (-1,-1) # Use col,row for consistency
+    cx, cy = current_node.col, current_node.row
+
+    # Normalized direction from parent to current
+    dx = (cx - px) // max(1, abs(cx - px)) if px != -1 else 0
+    dy = (cy - py) // max(1, abs(cy - py)) if py != -1 else 0
+
+    # Possible directions to explore (pruned set)
+    # This logic is from standard JPS neighbor pruning rules.
+    # TODO: Refine this pruning based on Harabor's papers, especially for no corner cutting.
+    # For now, this is a placeholder for a more accurate pruning.
+
+    possible_directions = []
+    if dx != 0 and dy != 0: # Came from diagonal
+        # Natural neighbors: (dx,0), (0,dy), (dx,dy)
+        if _jps_is_walkable(grid, cy + dy, cx): possible_directions.append((0, dy))
+        if _jps_is_walkable(grid, cy, cx + dx): possible_directions.append((dx, 0))
+        if _jps_is_walkable(grid, cy + dy, cx + dx) and (_jps_is_walkable(grid, cy + dy, cx) or _jps_is_walkable(grid, cy, cx + dx)):
+            possible_directions.append((dx, dy))
+        # Forced neighbors (example for NE move: dx=1, dy=-1)
+        # Check W for obstacle, if so, NW is forced. Check S for obstacle, if so, SE is forced.
+        if not _jps_is_walkable(grid, cy, cx - dx) and _jps_is_walkable(grid, cy + dy, cx - dx): # Forced NW for NE
+             possible_directions.append((-dx, dy))
+        if not _jps_is_walkable(grid, cy - dy, cx) and _jps_is_walkable(grid, cy - dy, cx + dx): # Forced SE for NE
+             possible_directions.append((dx, -dy))
+
+    else: # Came from straight or is start_node
+        if dx == 0: # Vertical move (or start node exploring vertically)
+            if _jps_is_walkable(grid, cy + dy, cx):
+                possible_directions.append((0, dy)) # Straight
+            # Forced neighbors
+            if not _jps_is_walkable(grid, cy, cx + 1) and _jps_is_walkable(grid, cy + dy, cx + 1): # Obstacle right
+                possible_directions.append((1, dy))
+            if not _jps_is_walkable(grid, cy, cx - 1) and _jps_is_walkable(grid, cy + dy, cx - 1): # Obstacle left
+                possible_directions.append((-1, dy))
+        elif dy == 0: # Horizontal move (or start node exploring horizontally)
+            if _jps_is_walkable(grid, cy, cx + dx):
+                possible_directions.append((dx, 0)) # Straight
+            # Forced neighbors
+            if not _jps_is_walkable(grid, cy + 1, cx) and _jps_is_walkable(grid, cy + 1, cx + dx): # Obstacle below
+                possible_directions.append((dx, 1))
+            if not _jps_is_walkable(grid, cy - 1, cx) and _jps_is_walkable(grid, cy - 1, cx + dx): # Obstacle above
+                possible_directions.append((dx, -1))
+        else: # Start node, explore all valid directions
+            for dr_new in [-1, 0, 1]:
+                for dc_new in [-1, 0, 1]:
+                    if dr_new == 0 and dc_new == 0: continue
+                    if not grid.allow_diagonal_movement and dr_new != 0 and dc_new != 0: continue
+                    if _jps_is_walkable(grid, cy + dr_new, cx + dc_new):
+                         possible_directions.append((dc_new, dr_new)) # dc, dr for consistency with jump func
+
+
+    for dc_new, dr_new in possible_directions: # Note: jump uses (r,c,dr,dc) but directions here are (dc,dr)
+        jump_point = _jps_jump(grid, cy, cx, dr_new, dc_new, current_node, end_node) # Pass current_node as start for this jump
+        if jump_point:
+            successors.append(jump_point)
+    return successors
+
+
+def jps_search(grid, start_node, end_node):
+    # This is a placeholder and needs full A* main loop with JPS specific successor generation.
+    # The _jps_jump and _jps_identify_successors are very rough first drafts and need significant refinement
+    # based on the detailed JPS rules (especially forced neighbor detection and proper pruning).
+
+    if not start_node or not end_node or start_node.is_obstacle or end_node.is_obstacle:
+        return [], [], [] # path, visited_nodes, open_set_nodes
+
+    open_set = [] # Priority queue (f_score, h_score, node)
+    heapq.heappush(open_set, (start_node.f_score, heuristic(start_node, end_node, grid.allow_diagonal_movement), start_node))
+
+    open_set_tracker = {start_node} # For quick lookups
+    # previous_node handled by node.previous_node
+    # g_score handled by node.g
+
+    start_node.g = 0
+    start_node.h_score = heuristic(start_node, end_node, grid.allow_diagonal_movement)
+    start_node.f_score = start_node.g + start_node.h_score
+
+    visited_nodes_in_order = [] # For visualization
+
+    while open_set:
+        _, _, current_jump_point = heapq.heappop(open_set)
+
+        if current_jump_point not in open_set_tracker: # Already processed
+            continue
+        open_set_tracker.remove(current_jump_point)
+
+        visited_nodes_in_order.append(current_jump_point) # Add jump point to visited
+
+        if current_jump_point == end_node:
+            path = []
+            temp = end_node
+            while temp:
+                path.append(temp)
+                temp = temp.previous_node
+            return path[::-1], visited_nodes_in_order, list(open_set_tracker)
+
+        successors = _jps_identify_successors(grid, current_jump_point, end_node)
+
+        for successor_jp_node in successors:
+            # Cost from current_jump_point to successor_jp_node
+            # This needs to be the actual path cost, not just direct get_move_cost if JPS jumps over many cells
+            # For now, using heuristic as placeholder for actual cost calculation during jump
+            # This is a major simplification and likely incorrect for proper g-score accumulation in JPS
+
+            # Correct g-score calculation: distance between current_jump_point and successor_jp_node
+            # This means the jump function should also return the cost of the jump.
+            # For now, let's use Manhattan/Octile distance as g cost between jump points
+            # This is NOT the true path cost if terrain varies. JPS is for uniform cost grids.
+            # If we use terrain_cost, the jump function must accumulate it.
+
+            # Assuming jump function ensures optimal path to jump point, so g is direct distance cost
+            # This is a simplification; true JPS calculates g-cost by summing costs along jumped path.
+            # For initial structure:
+            move_dx = abs(current_jump_point.col - successor_jp_node.col)
+            move_dy = abs(current_jump_point.row - successor_jp_node.row)
+            cost_to_successor = 0
+            if grid.allow_diagonal_movement:
+                diag_steps = min(move_dx, move_dy)
+                card_steps = max(move_dx, move_dy) - diag_steps
+                cost_to_successor = diag_steps * COST_DIAGONAL * successor_jp_node.terrain_cost + \
+                                    card_steps * COST_CARDINAL * successor_jp_node.terrain_cost
+            else:
+                cost_to_successor = (move_dx + move_dy) * COST_CARDINAL * successor_jp_node.terrain_cost
+
+
+            temp_g_score = current_jump_point.g + cost_to_successor # Simplified cost
+
+            if temp_g_score < successor_jp_node.g:
+                successor_jp_node.previous_node = current_jump_point
+                successor_jp_node.g = temp_g_score
+                successor_jp_node.h_score = heuristic(successor_jp_node, end_node, grid.allow_diagonal_movement)
+                successor_jp_node.f_score = successor_jp_node.g + successor_jp_node.h_score
+                if successor_jp_node not in open_set_tracker:
+                    heapq.heappush(open_set, (successor_jp_node.f_score, successor_jp_node.h_score, successor_jp_node))
+                    open_set_tracker.add(successor_jp_node)
+
+    return [], visited_nodes_in_order, list(open_set_tracker) # No path found

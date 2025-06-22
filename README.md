@@ -18,6 +18,7 @@ The following pathfinding algorithms are implemented:
 - A* (A-Star) Algorithm
 - D* Lite Algorithm
 - Bidirectional Search (Dijkstra-based)
+- Jump Point Search (JPS) (Initial placeholder)
 
 ## Key Controls
 - **Mouse Left Click**:
@@ -35,6 +36,7 @@ The following pathfinding algorithms are implemented:
 - **A**: Select A* Algorithm.
 - **L**: Select D* Lite Algorithm.
 - **B**: Select Bidirectional Search.
+- **J**: Select Jump Point Search.
 - **T**: (Only when D* Lite is selected) Enter "Set D* Lite Target Node" mode.
 - **1**: Activate "Paint Normal Terrain" mode (cost 1.0).
 - **2**: Activate "Paint Mud Terrain" mode (cost 3.0).

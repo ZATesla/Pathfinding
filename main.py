@@ -11,7 +11,7 @@ CELL_HEIGHT = WINDOW_HEIGHT // GRID_ROWS
 # Pygame specific imports are already at the top (import pygame)
 
 # Core logic imports
-from core_logic import Node, Grid, dijkstra, a_star, run_d_star_lite, heuristic, bidirectional_search
+from core_logic import Node, Grid, dijkstra, a_star, run_d_star_lite, heuristic, bidirectional_search, jps_search
 
 # Colors - remain in GUI module
 WHITE = (255, 255, 255)
@@ -117,13 +117,15 @@ def main_gui():
         "A_STAR": a_star,
         "DIJKSTRA": dijkstra,
         "D_STAR_LITE": run_d_star_lite,
-        "BIDIRECTIONAL": bidirectional_search # Added Bidirectional
+        "BIDIRECTIONAL": bidirectional_search,
+        "JPS": jps_search # Added JPS
     }
     ALGO_NAMES = { # For display purposes
         "A_STAR": "A*",
         "DIJKSTRA": "Dijkstra",
         "D_STAR_LITE": "D* Lite",
-        "BIDIRECTIONAL": "Bidirectional Search" # Added Bidirectional
+        "BIDIRECTIONAL": "Bidirectional Search",
+        "JPS": "Jump Point Search" # Added JPS
     }
 
     def update_caption():
@@ -149,7 +151,7 @@ def main_gui():
         if mode_text:
             caption = f"{base_caption} | {mode_text}"
         else:
-            bindings = "S:Start, E:End, D:Diag, R:Reset | Algos:K,A,L,B(Bidir) | Terrain:1-3 | Enter:Run"
+            bindings = "S:Start, E:End, D:Diag, R:Reset | Algos:K,A,L,B,J(JPS) | Terrain:1-3 | Enter:Run"
             if current_algorithm == "D_STAR_LITE":
                 bindings += ", T:Move Target"
             caption = f"{base_caption} | {bindings}"
@@ -202,6 +204,9 @@ def main_gui():
                         setting_target_d_lite = False
                     elif event.key == pygame.K_b: # 'B' for Bidirectional
                         current_algorithm = "BIDIRECTIONAL"
+                        setting_target_d_lite = False
+                    elif event.key == pygame.K_j: # 'J' for JPS
+                        current_algorithm = "JPS"
                         setting_target_d_lite = False
 
                     elif event.key == pygame.K_d: # Toggle Diagonal Movement
@@ -268,17 +273,23 @@ def main_gui():
                                 # For now, combine visited and open sets for basic animation.
                                 # TODO: Enhance start_animation or create a new one for distinct bidirectional visualization
                                 combined_visited = visited_fwd + list(set(visited_bwd) - set(visited_fwd)) # Crude merge
-                                combined_open = list(set(open_fwd + open_bwd))
+                                combined_open = list(set(open_fwd + open_bwd)) # Crude merge
                                 start_animation(path, combined_visited, combined_open)
+                            elif current_algorithm == "JPS":
+                                # JPS returns path, visited_jump_points, open_set_jump_points
+                                path, visited_jp, open_set_jp = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node)
+                                # For visualization, visited_jp are the jump points considered.
+                                # The actual "visited" cells during jumps are not explicitly returned by this simplified JPS.
+                                # So, we'll animate based on the jump points.
+                                start_animation(path, visited_jp, open_set_jp)
                             else: # A*, Dijkstra
                                 path, visited, open_set = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node)
-                                start_animation(path, visited, open_set) # Standard animation
+                                start_animation(path, visited, open_set)
 
                             if path:
                                 print(f"{algo_name_display} Path found. Length: {len(path)}")
                             else:
                                 print(f"{algo_name_display} No path found.")
-                                # start_animation is already called above, even for no path
                         else:
                             print("Error: Set Start and End nodes before running an algorithm.")
 

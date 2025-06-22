@@ -25,7 +25,11 @@
     *   Path reconstruction combines segments from meeting point.
     *   Integrated into GUI with 'B' key.
     *   Basic visualization merges visited/open sets from both searches.
-9.  Implement Jump Point Search (JPS) for grid-based speed-up over A*.
+9.  Implement Jump Point Search (JPS) for grid-based speed-up over A*. - **IN PROGRESS (Skeleton)**
+    *   Added placeholder functions (`jps_search`, `_jps_jump`, `_jps_identify_successors`) in `core_logic.py`.
+    *   Integrated into GUI with 'J' key for selection.
+    *   Basic placeholder test added.
+    *   **Core JPS logic (pruning, forced neighbors, jump mechanics, cost accumulation) still needs full implementation.**
 10. Optimize D* Lite: Implement efficient updates when obstacles change or target moves, instead of full re-computation (current `main.py` does a full replan).
 11. Improve D* Lite `_d_star_open_set_tracker` and `_d_star_pq` handling to avoid global-like variables or pass them more cleanly.
 
