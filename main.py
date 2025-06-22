@@ -104,9 +104,12 @@ def draw_all_nodes(surface, grid_instance: Grid):
 
 def main_gui():
     pygame.init()
+    pygame.font.init() # Initialize font module
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     # Caption will be set by update_caption()
     clock = pygame.time.Clock()
+
+    ui_font = pygame.font.Font(None, 28) # Or specify a font file
 
     grid_instance = Grid(GRID_ROWS, GRID_COLS, CELL_WIDTH, CELL_HEIGHT)
 
@@ -461,6 +464,11 @@ def main_gui():
         screen.fill(WHITE)
         draw_all_nodes(screen, grid_instance) # Use the new drawing function for all nodes
         draw_grid_lines(screen, GRID_ROWS, GRID_COLS, WINDOW_WIDTH, WINDOW_HEIGHT, CELL_WIDTH, CELL_HEIGHT) # Draw lines on top
+
+        # Draw algorithm indicator text
+        algo_text_surface = ui_font.render(f"Algorithm: {ALGO_NAMES[current_algorithm]}", True, BLACK)
+        screen.blit(algo_text_surface, (5, 5)) # Position at top-left
+
         pygame.display.flip()
         clock.tick(60)
 

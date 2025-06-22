@@ -40,7 +40,9 @@
     *   Persistent `pq` and `open_set_tracker` for D* Lite are now managed in `main_gui`.
 
 ## GUI & Visualization Enhancements:
-12. Add a visual indicator for the current algorithm selected on the GUI itself (not just window caption).
+12. Add a visual indicator for the current algorithm selected on the GUI itself (not just window caption). - **COMPLETED**
+    *   Displays "Algorithm: [Name]" at the top-left of the screen.
+    *   Updates dynamically when algorithm is changed.
 13. Allow users to save and load grid configurations (obstacles, start/end points).
 14. Implement adjustable animation speed for algorithm visualization.
 15. Display path length and number of nodes visited/expanded after an algorithm run.
