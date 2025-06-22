@@ -224,6 +224,11 @@ def main_gui():
     d_star_lite_open_set_tracker = set()
     d_star_lite_initialized_run = False # Flag to check if D* Lite has been run at least once
 
+    # Variables to store last run's stats
+    last_path_length = None
+    last_visited_count = None
+    last_open_set_count = None # Optional, can add later if needed
+
     current_algorithm = "A_STAR" # Default algorithm
     ALGORITHMS = {
         "A_STAR": a_star,
@@ -417,49 +422,43 @@ def main_gui():
                             diag_status_msg = "with" if grid_instance.allow_diagonal_movement else "without"
                             print(f"Running {algo_name_display} Algorithm {diag_status_msg} diagonal movement...")
 
-                            if current_algorithm == "D_STAR_LITE":
-                                path, visited, open_set = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node, heuristic)
-                                start_animation(path, visited, open_set) # Standard animation
-                            elif current_algorithm == "BIDIRECTIONAL":
-                                # Bidirectional returns: path, visited_fwd, visited_bwd, open_fwd, open_bwd
-                                path, visited_fwd, visited_bwd, open_fwd, open_bwd = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node)
-                                # For now, combine visited and open sets for basic animation.
-                                # TODO: Enhance start_animation or create a new one for distinct bidirectional visualization
-                                combined_visited = visited_fwd + list(set(visited_bwd) - set(visited_fwd)) # Crude merge
-                                combined_open = list(set(open_fwd + open_bwd)) # Crude merge
-                                start_animation(path, combined_visited, combined_open)
-                            elif current_algorithm == "JPS":
-                                # JPS returns path, visited_jump_points, open_set_jump_points
-                                path, visited_jp, open_set_jp = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node)
-                                # For visualization, visited_jp are the jump points considered.
-                                # The actual "visited" cells during jumps are not explicitly returned by this simplified JPS.
-                                # So, we'll animate based on the jump points.
-                                start_animation(path, visited_jp, open_set_jp)
-                            else: # A*, Dijkstra
-                                path, visited, open_set = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node)
-                                start_animation(path, visited, open_set)
+                            path_result, visited_result, open_set_result = None, None, None
 
-                            if path:
-                                print(f"{algo_name_display} Path found. Length: {len(path)}")
+                            if current_algorithm == "D_STAR_LITE":
+                                path_result, visited_result, open_set_result = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node, heuristic)
+                            elif current_algorithm == "BIDIRECTIONAL":
+                                path_result, visited_fwd, visited_bwd, open_fwd, open_bwd = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node)
+                                visited_result = visited_fwd + list(set(visited_bwd) - set(visited_fwd))
+                                open_set_result = list(set(open_fwd + open_bwd))
+                            else: # A*, Dijkstra, JPS (JPS returns visited_jump_points as visited_result)
+                                path_result, visited_result, open_set_result = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node)
+
+                            start_animation(path_result, visited_result, open_set_result)
+
+                            if path_result:
+                                last_path_length = len(path_result)
+                                last_visited_count = len(visited_result)
+                                print(f"{algo_name_display} Path found. Length: {last_path_length}, Visited: {last_visited_count}")
                             else:
-                                print(f"{algo_name_display} No path found.")
+                                last_path_length = 0
+                                last_visited_count = len(visited_result) # Still show visited even if no path
+                                print(f"{algo_name_display} No path found. Visited: {last_visited_count}")
                         else:
                             print("Error: Set Start and End nodes before running an algorithm.")
+                            last_path_length, last_visited_count = None, None
+
 
                     elif event.key == pygame.K_r: # Reset grid
-                        # Preserve current diagonal setting when resetting
                         current_diag_setting = grid_instance.allow_diagonal_movement
                         grid_instance = Grid(GRID_ROWS, GRID_COLS, CELL_WIDTH, CELL_HEIGHT)
-                        grid_instance.set_allow_diagonal_movement(current_diag_setting) # Restore
-                        setting_start = False
-                        setting_end = False
-                        setting_target_d_lite = False
-                        painting_terrain_type = 0 # Also reset terrain painting mode
-                        d_star_lite_initialized_run = False # Reset D* Lite state
+                        grid_instance.set_allow_diagonal_movement(current_diag_setting)
+                        setting_start, setting_end, setting_target_d_lite, painting_terrain_type = False, False, False, 0
+                        d_star_lite_initialized_run = False
                         d_star_lite_pq.clear()
                         d_star_lite_open_set_tracker.clear()
                         animating = False
                         animation_data["animation_phase"] = "stopped"
+                        last_path_length, last_visited_count = None, None # Reset stats
 
                     update_caption() # Update caption after any relevant key press
 
@@ -610,6 +609,18 @@ def main_gui():
         # Draw algorithm indicator text
         algo_text_surface = ui_font.render(f"Algorithm: {ALGO_NAMES[current_algorithm]}", True, BLACK)
         screen.blit(algo_text_surface, (5, 5)) # Position at top-left
+
+        # Display Path Length and Visited Count
+        if last_path_length is not None and last_visited_count is not None:
+            path_len_text = f"Path Length: {last_path_length if last_path_length > 0 else 'N/A'}"
+            visited_text = f"Nodes Visited: {last_visited_count}"
+
+            path_len_surface = ui_font.render(path_len_text, True, BLACK)
+            visited_surface = ui_font.render(visited_text, True, BLACK)
+
+            # Position them, e.g., top-right or below algo indicator
+            screen.blit(path_len_surface, (WINDOW_WIDTH - path_len_surface.get_width() - 5, 5))
+            screen.blit(visited_surface, (WINDOW_WIDTH - visited_surface.get_width() - 5, 30))
 
         pygame.display.flip()
         clock.tick(60)

@@ -12,9 +12,11 @@ This project is a Python application that demonstrates various pathfinding algor
 - Ability to "paint" different terrain types (Normal, Mud, Water) with varying movement costs.
 - Save and Load grid configurations (obstacles, start/end points, terrain, diagonal settings) to/from `grid_config.json`.
 - Adjustable animation speed for algorithm visualization.
+- Displays path length and number of nodes visited/expanded after an algorithm run.
 - Clear display of the starting point, ending point, obstacles, terrain types, visited nodes, and the final path.
 
 ## Algorithms Implemented
+- Dijkstra's Algorithm
 - A* (A-Star) Algorithm
 - D* Lite Algorithm (with efficient replanning for obstacle/target changes)
 - Bidirectional Search (Dijkstra-based)

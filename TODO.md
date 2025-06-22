@@ -51,7 +51,10 @@
     *   User can press `+`/`=` to speed up animation (decrease delay) and `-` to slow down (increase delay).
     *   Cycles through predefined speed levels: Instant, Fast, Normal, Slow, Very Slow.
     *   Current speed setting displayed in window caption.
-15. Display path length and number of nodes visited/expanded after an algorithm run.
+15. Display path length and number of nodes visited/expanded after an algorithm run. - **COMPLETED**
+    *   Shows "Path Length: [value]" and "Nodes Visited: [value]" in the top-right of the screen.
+    *   "Path Length: N/A" if no path found. Visited count still shown.
+    *   Stats are cleared on grid reset.
 16. Add a "Clear Path" button to remove only the visualized path/visited nodes without resetting obstacles/start/end.
 17. Improve visual distinction between open set, closed set, and path nodes during/after animation.
 
