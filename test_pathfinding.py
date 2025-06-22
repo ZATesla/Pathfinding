@@ -1,6 +1,11 @@
 import unittest
 # Updated import to use core_logic
-from core_logic import Node, Grid, dijkstra, a_star, heuristic, run_d_star_lite, reset_d_star_lite_internals
+from core_logic import (Node, Grid, dijkstra, a_star, heuristic,
+                        run_d_star_lite, # This is the old one, will be modified/replaced by direct calls
+                        d_star_lite_initialize, d_star_lite_update_node, d_star_lite_compute_shortest_path,
+                        d_star_lite_obstacle_change_update, d_star_lite_target_move_update,
+                        bidirectional_search, jps_search)
+
 
 # Constants for grid creation in tests, can be small
 TEST_CELL_WIDTH = 10
@@ -307,8 +312,11 @@ class TestPathfindingAlgorithms(unittest.TestCase):
         self.assertIsNotNone(node)
 
     # --- D* Lite Tests ---
+    # Note: D* Lite tests will now manage their own pq and open_set_tracker
+    # The reset_d_star_lite_internals() is no longer needed.
+
     def test_d_star_lite_simple_path(self):
-        reset_d_star_lite_internals()
+        # reset_d_star_lite_internals() # Removed
         # Diagonal enabled
         grid_diag = Grid(3, 3)
         grid_diag.start_node = grid_diag.nodes[0][0]
@@ -318,7 +326,7 @@ class TestPathfindingAlgorithms(unittest.TestCase):
         path_coords_diag = self._convert_path_to_coords(path_nodes_diag)
         self.assertEqual(path_coords_diag, [(0,0), (1,1), (2,2)], "D* Lite simple diagonal path incorrect")
 
-        reset_d_star_lite_internals()
+        # reset_d_star_lite_internals() # Removed
         # Diagonal disabled
         grid_no_diag = Grid(3, 3)
         grid_no_diag.set_allow_diagonal_movement(False)
@@ -333,7 +341,7 @@ class TestPathfindingAlgorithms(unittest.TestCase):
 
 
     def test_d_star_lite_with_obstacles(self):
-        reset_d_star_lite_internals()
+        # reset_d_star_lite_internals() # Removed
         # Diagonal enabled
         grid_diag = Grid(3, 3)
         grid_diag.start_node = grid_diag.nodes[0][0]
@@ -349,7 +357,7 @@ class TestPathfindingAlgorithms(unittest.TestCase):
         ]
         self.assertIn(path_coords_diag, expected_paths_diag_obs, f"D* Lite diagonal path with obstacle {path_coords_diag} not in {expected_paths_diag_obs}")
 
-        reset_d_star_lite_internals()
+        # reset_d_star_lite_internals() # Removed
         # Diagonal disabled
         grid_no_diag = Grid(3, 3)
         grid_no_diag.set_allow_diagonal_movement(False)
@@ -367,7 +375,7 @@ class TestPathfindingAlgorithms(unittest.TestCase):
 
     def test_d_star_lite_no_path(self):
         for allow_diag in [True, False]:
-            reset_d_star_lite_internals()
+            # reset_d_star_lite_internals() # Removed
             grid = Grid(3, 3)
             grid.set_allow_diagonal_movement(allow_diag)
             grid.start_node = grid.nodes[0][0]
@@ -384,7 +392,7 @@ class TestPathfindingAlgorithms(unittest.TestCase):
 
     def test_d_star_lite_start_is_obstacle(self):
         for allow_diag in [True, False]:
-            reset_d_star_lite_internals()
+            # reset_d_star_lite_internals() # Removed
             grid = Grid(3, 3)
             grid.set_allow_diagonal_movement(allow_diag)
             start_node_obj = grid.nodes[0][0]
@@ -398,10 +406,10 @@ class TestPathfindingAlgorithms(unittest.TestCase):
 
     def test_d_star_lite_target_is_obstacle(self):
         for allow_diag in [True, False]:
-            reset_d_star_lite_internals()
+            # reset_d_star_lite_internals() # Removed
             grid = Grid(3, 3)
             grid.set_allow_diagonal_movement(allow_diag)
-            grid.start_node = grid.nodes[0][0] # This line was the reported error
+            grid.start_node = grid.nodes[0][0]
             target_node_obj = grid.nodes[2][2]
             grid.set_target_node(2,2)
             target_node_obj.is_obstacle = True
@@ -412,7 +420,7 @@ class TestPathfindingAlgorithms(unittest.TestCase):
 
     def test_d_star_lite_target_move_simple(self):
         # Test with diagonal enabled first
-        reset_d_star_lite_internals()
+        # reset_d_star_lite_internals() # Removed
         grid_diag = Grid(3, 3)
         grid_diag.start_node = grid_diag.nodes[0][0]
 
@@ -420,13 +428,14 @@ class TestPathfindingAlgorithms(unittest.TestCase):
         path_nodes1_diag, _, _ = run_d_star_lite(grid_diag, grid_diag.start_node, grid_diag.end_node, heuristic)
         self.assertEqual(self._convert_path_to_coords(path_nodes1_diag), [(0,0),(1,1),(2,2)], "D* Lite (diag) initial path incorrect")
 
-        reset_d_star_lite_internals()
-        grid_diag.set_target_node(0, 2)
+        # reset_d_star_lite_internals() # Removed - now handled by run_d_star_lite or manually for replan tests
+        # For this test, subsequent run_d_star_lite will re-init.
+        grid_diag.set_target_node(0, 2) # This is a full replan because run_d_star_lite re-initializes
         path_nodes2_diag, _, _ = run_d_star_lite(grid_diag, grid_diag.start_node, grid_diag.end_node, heuristic)
         self.assertEqual(self._convert_path_to_coords(path_nodes2_diag), [(0,0),(0,1),(0,2)], "D* Lite (diag) moved target path incorrect")
 
         # Test with diagonal disabled
-        reset_d_star_lite_internals()
+        # reset_d_star_lite_internals() # Removed
         grid_no_diag = Grid(3, 3)
         grid_no_diag.set_allow_diagonal_movement(False)
         grid_no_diag.start_node = grid_no_diag.nodes[0][0]
@@ -435,7 +444,7 @@ class TestPathfindingAlgorithms(unittest.TestCase):
         path_nodes1_no_diag, _, _ = run_d_star_lite(grid_no_diag, grid_no_diag.start_node, grid_no_diag.end_node, heuristic)
         self.assertEqual(len(self._convert_path_to_coords(path_nodes1_no_diag)), 5, "D* Lite (no-diag) initial path length incorrect")
 
-        reset_d_star_lite_internals()
+        # reset_d_star_lite_internals() # Removed
         grid_no_diag.set_target_node(0, 2)
         path_nodes2_no_diag, _, _ = run_d_star_lite(grid_no_diag, grid_no_diag.start_node, grid_no_diag.end_node, heuristic)
         self.assertEqual(self._convert_path_to_coords(path_nodes2_no_diag), [(0,0),(0,1),(0,2)], "D* Lite (no-diag) moved target path incorrect")
@@ -443,7 +452,7 @@ class TestPathfindingAlgorithms(unittest.TestCase):
 
     def test_d_star_lite_target_move_with_obstacles(self):
         # Diagonal enabled
-        reset_d_star_lite_internals()
+        # reset_d_star_lite_internals() # Removed
         grid_diag = Grid(4, 4)
         grid_diag.start_node = grid_diag.nodes[0][0]
         grid_diag.nodes[1][0].is_obstacle = True
@@ -455,14 +464,14 @@ class TestPathfindingAlgorithms(unittest.TestCase):
         path_nodes1_diag, _, _ = run_d_star_lite(grid_diag, grid_diag.start_node, grid_diag.end_node, heuristic)
         self.assertEqual(self._convert_path_to_coords(path_nodes1_diag), [(0,0),(0,1),(0,2),(0,3)], "D* Lite (diag) initial path with obs incorrect")
 
-        reset_d_star_lite_internals()
+        # reset_d_star_lite_internals() # Removed
         grid_diag.set_target_node(3,3)
         path_nodes2_diag, _, _ = run_d_star_lite(grid_diag, grid_diag.start_node, grid_diag.end_node, heuristic)
-        expected_diag_obs_moved = [(0,0),(0,1),(0,2),(1,3),(2,3),(3,3)] # Corrected expected path
+        expected_diag_obs_moved = [(0,0),(0,1),(0,2),(1,3),(2,3),(3,3)]
         self.assertEqual(self._convert_path_to_coords(path_nodes2_diag), expected_diag_obs_moved, "D* Lite (diag) moved target path with obs incorrect")
 
         # Diagonal disabled
-        reset_d_star_lite_internals()
+        # reset_d_star_lite_internals() # Removed
         grid_no_diag = Grid(4, 4)
         grid_no_diag.set_allow_diagonal_movement(False)
         grid_no_diag.start_node = grid_no_diag.nodes[0][0]
@@ -475,7 +484,7 @@ class TestPathfindingAlgorithms(unittest.TestCase):
         path_nodes1_no_diag, _, _ = run_d_star_lite(grid_no_diag, grid_no_diag.start_node, grid_no_diag.end_node, heuristic)
         self.assertEqual(self._convert_path_to_coords(path_nodes1_no_diag), [(0,0),(0,1),(0,2),(0,3)], "D* Lite (no-diag) initial path with obs incorrect")
 
-        reset_d_star_lite_internals()
+        # reset_d_star_lite_internals() # Removed
         grid_no_diag.set_target_node(3,3)
         path_nodes2_no_diag, _, _ = run_d_star_lite(grid_no_diag, grid_no_diag.start_node, grid_no_diag.end_node, heuristic)
         expected_no_diag_obs_moved = [(0,0),(0,1),(0,2),(0,3),(1,3),(2,3),(3,3)]
@@ -544,7 +553,7 @@ class TestPathfindingAlgorithms(unittest.TestCase):
 
     def test_path_with_terrain_costs_d_star_lite(self):
         for allow_diag in [True, False]:
-            reset_d_star_lite_internals()
+            # reset_d_star_lite_internals() # Removed
             grid = Grid(3, 3)
             grid.set_allow_diagonal_movement(allow_diag)
             grid.start_node = grid.nodes[0][0]
@@ -652,6 +661,83 @@ class TestPathfindingAlgorithms(unittest.TestCase):
             else:
                 expected = [(0,0), (1,0), (1,1), (1,2), (0,2)]
                 self.assertEqual(path_coords, expected, f"Bidirectional terrain (diag={allow_diag}) path incorrect, got {path_coords}")
+
+    def test_d_star_lite_replan_obstacle_added(self):
+        for allow_diag in [True, False]:
+            grid = Grid(5, 5)
+            grid.set_allow_diagonal_movement(allow_diag)
+            start_node = grid.nodes[0][0]
+            goal_node = grid.nodes[4][4]
+            grid.start_node = start_node
+            grid.end_node = goal_node
+
+            pq = []
+            open_set_tracker = set()
+
+            # Initial plan
+            d_star_lite_initialize(grid, start_node, goal_node, heuristic, pq, open_set_tracker)
+            path1, _, _ = d_star_lite_compute_shortest_path(grid, start_node, goal_node, heuristic, pq, open_set_tracker)
+            path1_coords = self._convert_path_to_coords(path1)
+            self.assertTrue(len(path1_coords) > 0, f"D* Lite initial path not found (diag={allow_diag})")
+
+            # Add an obstacle on the path
+            # For a 5x5 grid, path (0,0)->(4,4) might go through (2,2) if diagonal, or a longer cardinal path
+            obstacle_node_coords = (2,2) if allow_diag and (2,2) in path1_coords else path1_coords[len(path1_coords)//2] # pick middle of path
+
+            grid.nodes[obstacle_node_coords[0]][obstacle_node_coords[1]].is_obstacle = True
+
+            # Update D* Lite due to obstacle
+            d_star_lite_obstacle_change_update(grid, obstacle_node_coords[0], obstacle_node_coords[1],
+                                               pq, open_set_tracker,
+                                               start_node, goal_node, heuristic)
+
+            # Replan
+            path2, _, _ = d_star_lite_compute_shortest_path(grid, start_node, goal_node, heuristic, pq, open_set_tracker)
+            path2_coords = self._convert_path_to_coords(path2)
+
+            self.assertTrue(len(path2_coords) > 0, f"D* Lite replan path not found after adding obstacle (diag={allow_diag})")
+            self.assertNotIn(obstacle_node_coords, path2_coords, f"D* Lite replan path goes through new obstacle (diag={allow_diag})")
+            if path1_coords != path2_coords: # Path should change if obstacle was on it
+                 print(f"D* Lite (diag={allow_diag}): Obstacle added, path changed from {path1_coords} to {path2_coords}")
+            # else:
+                 # This can happen if the obstacle was not on the only shortest path, or another equally short path existed.
+                 # print(f"D* Lite (diag={allow_diag}): Obstacle added, path did NOT change: {path1_coords}")
+
+
+    def test_d_star_lite_replan_target_moved(self):
+        for allow_diag in [True, False]:
+            grid = Grid(5, 5)
+            grid.set_allow_diagonal_movement(allow_diag)
+            start_node = grid.nodes[0][0]
+            initial_goal_node = grid.nodes[4][4]
+            grid.start_node = start_node
+            grid.end_node = initial_goal_node
+
+            pq = []
+            open_set_tracker = set()
+
+            # Initial plan
+            d_star_lite_initialize(grid, start_node, initial_goal_node, heuristic, pq, open_set_tracker)
+            path1, _, _ = d_star_lite_compute_shortest_path(grid, start_node, initial_goal_node, heuristic, pq, open_set_tracker)
+            path1_coords = self._convert_path_to_coords(path1)
+            self.assertTrue(len(path1_coords) > 0, f"D* Lite initial path not found (diag={allow_diag})")
+
+            # Move target
+            new_goal_node = grid.nodes[0][4]
+            grid.set_target_node(0,4) # This updates grid.end_node
+
+            d_star_lite_target_move_update(grid, new_goal_node, initial_goal_node,
+                                           pq, open_set_tracker,
+                                           start_node, heuristic)
+
+            # Replan
+            path2, _, _ = d_star_lite_compute_shortest_path(grid, start_node, new_goal_node, heuristic, pq, open_set_tracker)
+            path2_coords = self._convert_path_to_coords(path2)
+
+            self.assertTrue(len(path2_coords) > 0, f"D* Lite replan path not found after moving target (diag={allow_diag})")
+            self.assertEqual(path2_coords[-1], (0,4), f"D* Lite replan path does not end at new target (diag={allow_diag})")
+            # print(f"D* Lite (diag={allow_diag}): Target moved, path changed from {path1_coords} to {path2_coords}")
+
 
     # --- Jump Point Search Tests (Placeholder) ---
     def test_jps_search_placeholder(self):

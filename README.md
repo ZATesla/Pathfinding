@@ -16,7 +16,7 @@ This project is a Python application that demonstrates various pathfinding algor
 The following pathfinding algorithms are implemented:
 - Dijkstra's Algorithm
 - A* (A-Star) Algorithm
-- D* Lite Algorithm
+- D* Lite Algorithm (with efficient replanning for obstacle/target changes)
 - Bidirectional Search (Dijkstra-based)
 - Jump Point Search (JPS) (Initial placeholder)
 

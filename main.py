@@ -11,7 +11,10 @@ CELL_HEIGHT = WINDOW_HEIGHT // GRID_ROWS
 # Pygame specific imports are already at the top (import pygame)
 
 # Core logic imports
-from core_logic import Node, Grid, dijkstra, a_star, run_d_star_lite, heuristic, bidirectional_search, jps_search
+from core_logic import (Node, Grid, dijkstra, a_star, run_d_star_lite, heuristic,
+                        bidirectional_search, jps_search,
+                        d_star_lite_obstacle_change_update, d_star_lite_target_move_update,
+                        d_star_lite_initialize, d_star_lite_compute_shortest_path) # Added D* specific imports
 
 # Colors - remain in GUI module
 WHITE = (255, 255, 255)
@@ -111,6 +114,11 @@ def main_gui():
     setting_end = False
     setting_target_d_lite = False # For D* Lite target moving mode
     painting_terrain_type = 0 # 0: Not painting terrain, 1: Normal, 2: Mud, 3: Water
+
+    # D* Lite persistent state for replanning
+    d_star_lite_pq = []
+    d_star_lite_open_set_tracker = set()
+    d_star_lite_initialized_run = False # Flag to check if D* Lite has been run at least once
 
     current_algorithm = "A_STAR" # Default algorithm
     ALGORITHMS = {
@@ -302,6 +310,9 @@ def main_gui():
                         setting_end = False
                         setting_target_d_lite = False
                         painting_terrain_type = 0 # Also reset terrain painting mode
+                        d_star_lite_initialized_run = False # Reset D* Lite state
+                        d_star_lite_pq.clear()
+                        d_star_lite_open_set_tracker.clear()
                         animating = False
                         animation_data["animation_phase"] = "stopped"
 
@@ -312,59 +323,104 @@ def main_gui():
                     clicked_node = get_gui_node_from_mouse_pos(mouse_pos, grid_instance, CELL_WIDTH, CELL_HEIGHT)
 
                     if clicked_node:
-                        # Priority to special modes (Start, End, D* Target)
+                        old_obstacle_status = clicked_node.is_obstacle
+                        action_taken = False # Flag to see if an action requires D* update
+
                         if setting_start:
                             if clicked_node == grid_instance.end_node: grid_instance.end_node = None
                             if grid_instance.start_node:
                                 grid_instance.start_node.is_obstacle = False
-                                grid_instance.start_node.terrain_cost = TERRAIN_COSTS[1]["cost"] # Reset old start node terrain to Normal
+                                grid_instance.start_node.terrain_cost = TERRAIN_COSTS[1]["cost"]
                             grid_instance.start_node = clicked_node
                             grid_instance.start_node.is_obstacle = False
-                            grid_instance.start_node.terrain_cost = TERRAIN_COSTS[1]["cost"] # Start node is Normal terrain
+                            grid_instance.start_node.terrain_cost = TERRAIN_COSTS[1]["cost"]
                             print(f"Set start node at ({clicked_node.row}, {clicked_node.col})")
                             setting_start = False
+                            d_star_lite_initialized_run = False # Start/End change invalidates D* state
+                            action_taken = True
                         elif setting_end:
+                            old_target_for_d_lite = grid_instance.end_node
                             if clicked_node == grid_instance.start_node: grid_instance.start_node = None
                             if grid_instance.end_node:
                                 grid_instance.end_node.is_obstacle = False
-                                grid_instance.end_node.terrain_cost = TERRAIN_COSTS[1]["cost"] # Reset old end node terrain to Normal
+                                grid_instance.end_node.terrain_cost = TERRAIN_COSTS[1]["cost"]
                             grid_instance.end_node = clicked_node
                             grid_instance.end_node.is_obstacle = False
-                            grid_instance.end_node.terrain_cost = TERRAIN_COSTS[1]["cost"] # End node is Normal terrain
+                            grid_instance.end_node.terrain_cost = TERRAIN_COSTS[1]["cost"]
                             print(f"Set end node at ({clicked_node.row}, {clicked_node.col})")
                             setting_end = False
+                            action_taken = True
+                            if current_algorithm == "D_STAR_LITE" and d_star_lite_initialized_run and grid_instance.start_node:
+                                d_star_lite_target_move_update(grid_instance, grid_instance.end_node, old_target_for_d_lite,
+                                                               d_star_lite_pq, d_star_lite_open_set_tracker,
+                                                               grid_instance.start_node, heuristic)
+                                path, visited, open_set = d_star_lite_compute_shortest_path(
+                                    grid_instance, grid_instance.start_node, grid_instance.end_node, heuristic,
+                                    d_star_lite_pq, d_star_lite_open_set_tracker)
+                                start_animation(path, visited, open_set)
+                            else:
+                                d_star_lite_initialized_run = False # End change invalidates D* state if not handled above
+
                         elif setting_target_d_lite and current_algorithm == "D_STAR_LITE":
                             if clicked_node.is_obstacle or clicked_node == grid_instance.start_node :
                                 print(f"Cannot set D* Target at ({clicked_node.row}, {clicked_node.col}) as it's an obstacle or start node.")
-                            elif grid_instance.set_target_node(clicked_node.row, clicked_node.col):
-                                print(f"D* Lite Target moved to ({clicked_node.row}, {clicked_node.col}). Replanning...")
-                                if grid_instance.start_node and grid_instance.end_node:
-                                    grid_instance.reset_algorithm_states()
-                                    grid_instance.update_all_node_neighbors() # Ensure neighbors are updated if obstacle status changed
-                                    path, visited, open_set = run_d_star_lite(grid_instance, grid_instance.start_node, grid_instance.end_node, heuristic)
-                                    if path: print("D* Lite Replan Path found. Length:", len(path))
-                                    else: print("D* Lite Replan: No path found.")
-                                    start_animation(path, visited, open_set)
-                                else:
-                                    print("Cannot replan D* Lite without a start node.")
+                            else:
+                                old_target_node_instance = grid_instance.end_node # Store before it's changed by set_target_node
+                                if grid_instance.set_target_node(clicked_node.row, clicked_node.col): # This sets grid_instance.end_node
+                                    print(f"D* Lite Target moved to ({clicked_node.row}, {clicked_node.col}). Replanning...")
+                                    if grid_instance.start_node and d_star_lite_initialized_run:
+                                        grid_instance.reset_algorithm_states() # Reset visual/temp states, not g/rhs for D*
+                                        d_star_lite_target_move_update(grid_instance, grid_instance.end_node, old_target_node_instance,
+                                                                       d_star_lite_pq, d_star_lite_open_set_tracker,
+                                                                       grid_instance.start_node, heuristic)
+                                        path, visited, open_set = d_star_lite_compute_shortest_path(
+                                            grid_instance, grid_instance.start_node, grid_instance.end_node, heuristic,
+                                            d_star_lite_pq, d_star_lite_open_set_tracker)
+                                        start_animation(path, visited, open_set)
+                                    elif grid_instance.start_node: # Not initialized, run full D*
+                                        d_star_lite_initialized_run = False # Force re-init
+                                        # Simulate pressing Enter to run full D*
+                                        pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
+                                    else:
+                                        print("Cannot replan D* Lite without a start node.")
                             setting_target_d_lite = False
-                        # Then terrain painting or obstacle toggling
+                            action_taken = True
+
                         elif painting_terrain_type > 0:
                             if clicked_node != grid_instance.start_node and clicked_node != grid_instance.end_node:
                                 terrain_info = TERRAIN_COSTS.get(painting_terrain_type)
                                 if terrain_info:
                                     clicked_node.terrain_cost = terrain_info["cost"]
-                                    if clicked_node.is_obstacle: # If it was an obstacle, make it not an obstacle
+                                    if clicked_node.is_obstacle:
                                         clicked_node.is_obstacle = False
-                                        grid_instance.update_all_node_neighbors() # Update neighbors as obstacle status changed
+                                        # This is an obstacle change, needs D* update if active
+                                        if current_algorithm == "D_STAR_LITE" and d_star_lite_initialized_run and grid_instance.start_node and grid_instance.end_node:
+                                            d_star_lite_obstacle_change_update(grid_instance, clicked_node.row, clicked_node.col,
+                                                                               d_star_lite_pq, d_star_lite_open_set_tracker,
+                                                                               grid_instance.start_node, grid_instance.end_node, heuristic)
+                                            # Trigger replan by simulating Enter press
+                                            pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
+                                        else: # Regular update if D* not active or not initialized
+                                            grid_instance.update_all_node_neighbors()
                                     print(f"Set terrain at ({clicked_node.row}, {clicked_node.col}) to {terrain_info['name']} (Cost: {terrain_info['cost']})")
+                                    action_taken = True # Terrain cost change might affect D* path
                         else: # Default: Toggle obstacle
                             if clicked_node != grid_instance.start_node and clicked_node != grid_instance.end_node:
                                 clicked_node.is_obstacle = not clicked_node.is_obstacle
-                                if clicked_node.is_obstacle: # If now an obstacle, reset its terrain cost
+                                if clicked_node.is_obstacle:
                                     clicked_node.terrain_cost = TERRAIN_COSTS[1]["cost"]
-                                grid_instance.update_all_node_neighbors() # Neighbors change if obstacle toggled
+
                                 print(f"Toggled obstacle at ({clicked_node.row}, {clicked_node.col}) to {clicked_node.is_obstacle}")
+                                action_taken = True
+                                if current_algorithm == "D_STAR_LITE" and d_star_lite_initialized_run and grid_instance.start_node and grid_instance.end_node:
+                                    grid_instance.reset_algorithm_states() # Reset visual/temp states
+                                    d_star_lite_obstacle_change_update(grid_instance, clicked_node.row, clicked_node.col,
+                                                                       d_star_lite_pq, d_star_lite_open_set_tracker,
+                                                                       grid_instance.start_node, grid_instance.end_node, heuristic)
+                                    # Trigger replan by simulating Enter press if a path was already computed
+                                    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
+                                else: # Regular update if D* not active or not initialized
+                                    grid_instance.update_all_node_neighbors()
 
                         update_caption()
 

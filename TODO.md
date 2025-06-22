@@ -30,8 +30,14 @@
     *   Integrated into GUI with 'J' key for selection.
     *   Basic placeholder test added.
     *   **Core JPS logic (pruning, forced neighbors, jump mechanics, cost accumulation) still needs full implementation.**
-10. Optimize D* Lite: Implement efficient updates when obstacles change or target moves, instead of full re-computation (current `main.py` does a full replan).
-11. Improve D* Lite `_d_star_open_set_tracker` and `_d_star_pq` handling to avoid global-like variables or pass them more cleanly.
+10. Optimize D* Lite: Implement efficient updates when obstacles change or target moves, instead of full re-computation (current `main.py` does a full replan). - **COMPLETED**
+    *   `d_star_lite_obstacle_change_update` function added to `core_logic.py`.
+    *   `d_star_lite_target_move_update` function added to `core_logic.py`.
+    *   GUI in `main.py` now calls these update functions and re-uses D* Lite's PQ/open_set for replans.
+11. Improve D* Lite `_d_star_open_set_tracker` and `_d_star_pq` handling to avoid global-like variables or pass them more cleanly. - **COMPLETED**
+    *   D* Lite functions (`initialize`, `update_node`, `compute_shortest_path`) now take `pq` and `open_set_tracker` as parameters.
+    *   Removed global-like D* Lite state from `core_logic.py`.
+    *   Persistent `pq` and `open_set_tracker` for D* Lite are now managed in `main_gui`.
 
 ## GUI & Visualization Enhancements:
 12. Add a visual indicator for the current algorithm selected on the GUI itself (not just window caption).
