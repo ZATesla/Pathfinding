@@ -24,6 +24,22 @@ CYAN_VISITED = (0, 180, 180)
 ORANGE_OPEN = (255, 165, 0)
 MAGENTA_PATH = (255, 0, 255)
 
+# Terrain Colors & Costs
+TERRAIN_DEFAULT_COLOR = WHITE # Cost 1.0 (already default for node.terrain_cost)
+TERRAIN_MUD_COLOR = (139, 69, 19)  # Brown for "mud" (higher cost)
+TERRAIN_WATER_COLOR = (30, 144, 255) # DodgerBlue for "water" (even higher cost)
+
+TERRAIN_COSTS = {
+    1: {"cost": 1.0, "name": "Normal"}, # Default, associated with WHITE or no special terrain painting
+    2: {"cost": 3.0, "name": "Mud"},    # Key '1' for terrain type 1
+    3: {"cost": 5.0, "name": "Water"}   # Key '2' for terrain type 2
+}
+# Note: The visual association will be handled in draw_all_nodes and interaction logic.
+# We'll use number keys 1, 2, 3 to cycle through terrain paint modes.
+# Key 1: Paint Normal (effectively remove special terrain)
+# Key 2: Paint Mud (cost 3)
+# Key 3: Paint Water (cost 5)
+
 
 # --- GUI specific Helper Functions ---
 
@@ -55,15 +71,24 @@ def draw_all_nodes(surface, grid_instance: Grid):
             # Node's x, y, width, height are set if cell_width/height were passed to core_logic.Grid
             rect = pygame.Rect(node.x, node.y, node.width, node.height)
 
-            node_color = WHITE # Default
+            # Determine base color based on terrain cost first
+            if node.terrain_cost == TERRAIN_COSTS[2]["cost"]: # Mud
+                node_color = TERRAIN_MUD_COLOR
+            elif node.terrain_cost == TERRAIN_COSTS[3]["cost"]: # Water
+                node_color = TERRAIN_WATER_COLOR
+            else: # Default terrain or other states
+                node_color = WHITE
+
+            # Algorithm visualization overlays (path, open, visited)
+            # These should take precedence over basic terrain color if node is part of visualization
             if node.is_part_of_path:
                 node_color = MAGENTA_PATH
-            elif node.is_in_open_set_for_algorithm:
+            elif node.is_in_open_set_for_algorithm: # Should be drawn before visited
                 node_color = ORANGE_OPEN
             elif node.is_visited_by_algorithm:
                 node_color = CYAN_VISITED
 
-            # Obstacle, start, and end display properties
+            # Obstacle, start, and end display properties (highest precedence)
             if node.is_obstacle:
                 node_color = RED_OBSTACLE
             elif node == grid_instance.start_node: # Check if it's the start_node instance
@@ -85,6 +110,7 @@ def main_gui():
     setting_start = False
     setting_end = False
     setting_target_d_lite = False # For D* Lite target moving mode
+    painting_terrain_type = 0 # 0: Not painting terrain, 1: Normal, 2: Mud, 3: Water
 
     current_algorithm = "A_STAR" # Default algorithm
     ALGORITHMS = {
@@ -99,11 +125,21 @@ def main_gui():
     }
 
     def update_caption():
-        nonlocal setting_start, setting_end, setting_target_d_lite, current_algorithm, grid_instance
+        nonlocal setting_start, setting_end, setting_target_d_lite, current_algorithm, grid_instance, painting_terrain_type
         mode_text = ""
-        if setting_start: mode_text = "Set Start"
-        elif setting_end: mode_text = "Set End"
-        elif setting_target_d_lite: mode_text = "Set D* Target (LClick)"
+        if setting_start:
+            mode_text = "Set Start"
+        elif setting_end:
+            mode_text = "Set End"
+        elif setting_target_d_lite:
+            mode_text = "Set D* Target (LClick)"
+        elif painting_terrain_type > 0:
+            terrain_info = TERRAIN_COSTS.get(painting_terrain_type)
+            if terrain_info:
+                mode_text = f"Paint Terrain: {terrain_info['name']} (Cost: {terrain_info['cost']})"
+            else: # Should not happen if painting_terrain_type is correctly managed
+                mode_text = "Paint Terrain: Unknown"
+
 
         diag_status = "ON" if grid_instance.allow_diagonal_movement else "OFF"
         base_caption = f"Algorithm: {ALGO_NAMES[current_algorithm]} | Diagonal: {diag_status}"
@@ -111,7 +147,7 @@ def main_gui():
         if mode_text:
             caption = f"{base_caption} | {mode_text}"
         else:
-            bindings = "S:Start, E:End, D:ToggleDiag, Enter:Run, R:Reset, K:Dijkstra, A:A*, L:D*Lite"
+            bindings = "S:Start, E:End, D:Diag, R:Reset | Algos:K,A,L | Terrain:1(Norm),2(Mud),3(Water) | Enter:Run"
             if current_algorithm == "D_STAR_LITE":
                 bindings += ", T:Move Target"
             caption = f"{base_caption} | {bindings}"
@@ -169,20 +205,39 @@ def main_gui():
                         # update_all_node_neighbors is called by set_allow_diagonal_movement
                         print(f"Diagonal movement {'enabled' if grid_instance.allow_diagonal_movement else 'disabled'}")
 
+                    # Terrain Painting Mode Selection
+                    elif event.key == pygame.K_1:
+                        painting_terrain_type = 1 # Normal
+                        setting_start, setting_end, setting_target_d_lite = False, False, False
+                        print(f"Set to paint terrain: {TERRAIN_COSTS[1]['name']}")
+                    elif event.key == pygame.K_2:
+                        painting_terrain_type = 2 # Mud
+                        setting_start, setting_end, setting_target_d_lite = False, False, False
+                        print(f"Set to paint terrain: {TERRAIN_COSTS[2]['name']}")
+                    elif event.key == pygame.K_3:
+                        painting_terrain_type = 3 # Water
+                        setting_start, setting_end, setting_target_d_lite = False, False, False
+                        print(f"Set to paint terrain: {TERRAIN_COSTS[3]['name']}")
+                    elif event.key == pygame.K_0 or event.key == pygame.K_ESCAPE: # Turn off terrain painting
+                        painting_terrain_type = 0
+                        print("Terrain painting mode OFF")
 
-                    # Mode Selection (Start, End, D* Target)
-                    if event.key == pygame.K_s: # Intentionally after K_d to allow mode setting
+
+                    # Mode Selection (Start, End, D* Target) - Ensure these turn off terrain painting
+                    if event.key == pygame.K_s:
                         setting_start = True
-                        setting_end = False
-                        setting_target_d_lite = False
+                        setting_end, setting_target_d_lite, painting_terrain_type = False, False, 0
                     elif event.key == pygame.K_e:
                         setting_end = True
-                        setting_start = False
-                        setting_target_d_lite = False
+                        setting_start, setting_target_d_lite, painting_terrain_type = False, False, 0
                     elif event.key == pygame.K_t and current_algorithm == "D_STAR_LITE":
                         setting_target_d_lite = True
-                        setting_start = False
-                        setting_end = False
+                        setting_start, setting_end, painting_terrain_type = False, False, 0
+
+                    # If any mode key (S, E, T, or terrain keys) was pressed, other modes should be off.
+                    # The above logic handles this by setting other modes to False when one is activated.
+                    # If terrain painting was just activated, other modes (S,E,T) are already false.
+
 
                     elif event.key == pygame.K_RETURN: # Enter key to run selected algorithm
                         if grid_instance.start_node and grid_instance.end_node:
@@ -223,53 +278,72 @@ def main_gui():
                         setting_start = False
                         setting_end = False
                         setting_target_d_lite = False
+                        painting_terrain_type = 0 # Also reset terrain painting mode
                         animating = False
                         animation_data["animation_phase"] = "stopped"
 
                     update_caption() # Update caption after any relevant key press
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1: # Left mouse button
-                        mouse_pos = pygame.mouse.get_pos()
-                        clicked_node = get_gui_node_from_mouse_pos(mouse_pos, grid_instance, CELL_WIDTH, CELL_HEIGHT)
+                    mouse_pos = pygame.mouse.get_pos()
+                    clicked_node = get_gui_node_from_mouse_pos(mouse_pos, grid_instance, CELL_WIDTH, CELL_HEIGHT)
 
-                        if clicked_node:
-                            if setting_start:
-                                if clicked_node == grid_instance.end_node: grid_instance.end_node = None
-                                if grid_instance.start_node: grid_instance.start_node.is_obstacle = False
-                                grid_instance.start_node = clicked_node
+                    if clicked_node:
+                        # Priority to special modes (Start, End, D* Target)
+                        if setting_start:
+                            if clicked_node == grid_instance.end_node: grid_instance.end_node = None
+                            if grid_instance.start_node:
                                 grid_instance.start_node.is_obstacle = False
-                                print(f"Set start node at ({clicked_node.row}, {clicked_node.col})")
-                                setting_start = False
-                            elif setting_end:
-                                if clicked_node == grid_instance.start_node: grid_instance.start_node = None
-                                if grid_instance.end_node: grid_instance.end_node.is_obstacle = False
-                                grid_instance.end_node = clicked_node
+                                grid_instance.start_node.terrain_cost = TERRAIN_COSTS[1]["cost"] # Reset old start node terrain to Normal
+                            grid_instance.start_node = clicked_node
+                            grid_instance.start_node.is_obstacle = False
+                            grid_instance.start_node.terrain_cost = TERRAIN_COSTS[1]["cost"] # Start node is Normal terrain
+                            print(f"Set start node at ({clicked_node.row}, {clicked_node.col})")
+                            setting_start = False
+                        elif setting_end:
+                            if clicked_node == grid_instance.start_node: grid_instance.start_node = None
+                            if grid_instance.end_node:
                                 grid_instance.end_node.is_obstacle = False
-                                print(f"Set end node at ({clicked_node.row}, {clicked_node.col})")
-                                setting_end = False
-                            elif setting_target_d_lite and current_algorithm == "D_STAR_LITE":
-                                if grid_instance.set_target_node(clicked_node.row, clicked_node.col): # This sets grid_instance.end_node
-                                    print(f"D* Lite Target moved to ({clicked_node.row}, {clicked_node.col}). Replanning...")
-                                    if grid_instance.start_node and grid_instance.end_node:
-                                        # For D* Lite, re-running with the new goal.
-                                        # Full re-init for simplicity now; true D* Lite would update affected nodes and reuse PQ.
-                                        grid_instance.reset_algorithm_states()
-                                        grid_instance.update_all_node_neighbors()
-                                        path, visited, open_set = run_d_star_lite(grid_instance, grid_instance.start_node, grid_instance.end_node, heuristic)
-                                        if path: print("D* Lite Replan Path found. Length:", len(path))
-                                        else: print("D* Lite Replan: No path found.")
-                                        start_animation(path, visited, open_set)
-                                    else:
-                                        print("Cannot replan D* Lite without a start node.")
-                                setting_target_d_lite = False
-                            else: # Toggle obstacle
-                                if clicked_node != grid_instance.start_node and clicked_node != grid_instance.end_node:
-                                    clicked_node.is_obstacle = not clicked_node.is_obstacle
-                                    grid_instance.update_all_node_neighbors()
-                                    print(f"Toggled obstacle at ({clicked_node.row}, {clicked_node.col})")
+                                grid_instance.end_node.terrain_cost = TERRAIN_COSTS[1]["cost"] # Reset old end node terrain to Normal
+                            grid_instance.end_node = clicked_node
+                            grid_instance.end_node.is_obstacle = False
+                            grid_instance.end_node.terrain_cost = TERRAIN_COSTS[1]["cost"] # End node is Normal terrain
+                            print(f"Set end node at ({clicked_node.row}, {clicked_node.col})")
+                            setting_end = False
+                        elif setting_target_d_lite and current_algorithm == "D_STAR_LITE":
+                            if clicked_node.is_obstacle or clicked_node == grid_instance.start_node :
+                                print(f"Cannot set D* Target at ({clicked_node.row}, {clicked_node.col}) as it's an obstacle or start node.")
+                            elif grid_instance.set_target_node(clicked_node.row, clicked_node.col):
+                                print(f"D* Lite Target moved to ({clicked_node.row}, {clicked_node.col}). Replanning...")
+                                if grid_instance.start_node and grid_instance.end_node:
+                                    grid_instance.reset_algorithm_states()
+                                    grid_instance.update_all_node_neighbors() # Ensure neighbors are updated if obstacle status changed
+                                    path, visited, open_set = run_d_star_lite(grid_instance, grid_instance.start_node, grid_instance.end_node, heuristic)
+                                    if path: print("D* Lite Replan Path found. Length:", len(path))
+                                    else: print("D* Lite Replan: No path found.")
+                                    start_animation(path, visited, open_set)
+                                else:
+                                    print("Cannot replan D* Lite without a start node.")
+                            setting_target_d_lite = False
+                        # Then terrain painting or obstacle toggling
+                        elif painting_terrain_type > 0:
+                            if clicked_node != grid_instance.start_node and clicked_node != grid_instance.end_node:
+                                terrain_info = TERRAIN_COSTS.get(painting_terrain_type)
+                                if terrain_info:
+                                    clicked_node.terrain_cost = terrain_info["cost"]
+                                    if clicked_node.is_obstacle: # If it was an obstacle, make it not an obstacle
+                                        clicked_node.is_obstacle = False
+                                        grid_instance.update_all_node_neighbors() # Update neighbors as obstacle status changed
+                                    print(f"Set terrain at ({clicked_node.row}, {clicked_node.col}) to {terrain_info['name']} (Cost: {terrain_info['cost']})")
+                        else: # Default: Toggle obstacle
+                            if clicked_node != grid_instance.start_node and clicked_node != grid_instance.end_node:
+                                clicked_node.is_obstacle = not clicked_node.is_obstacle
+                                if clicked_node.is_obstacle: # If now an obstacle, reset its terrain cost
+                                    clicked_node.terrain_cost = TERRAIN_COSTS[1]["cost"]
+                                grid_instance.update_all_node_neighbors() # Neighbors change if obstacle toggled
+                                print(f"Toggled obstacle at ({clicked_node.row}, {clicked_node.col}) to {clicked_node.is_obstacle}")
 
-                            update_caption() # Update caption after mouse click actions
+                        update_caption()
 
 
         if animating:

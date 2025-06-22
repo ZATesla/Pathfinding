@@ -15,6 +15,7 @@ class Node:
         self.height = height
 
         self.is_obstacle = False
+        self.terrain_cost = 1.0 # Default terrain cost
         self.g = float('inf')  # Renamed from g_score
         self.rhs = float('inf') # Added for D* Lite
         self.h_score = float('inf') # Still used by A*, can be reused by D* heuristic
@@ -147,11 +148,16 @@ COST_CARDINAL = 1.0
 COST_DIAGONAL = 1.41421356 # sqrt(2) - can be adjusted, e.g. to 1.0 for Chebyshev distance like behavior
 
 def get_move_cost(node1, node2):
-    """Returns the cost of moving from node1 to node2."""
-    is_diagonal = abs(node1.row - node2.row) == 1 and abs(node1.col - node2.col) == 1
-    if is_diagonal:
-        return COST_DIAGONAL
-    return COST_CARDINAL
+    """
+    Returns the cost of moving from node1 to node2.
+    Factors in the terrain_cost of the destination node (node2).
+    """
+    base_cost = COST_CARDINAL
+    if abs(node1.row - node2.row) == 1 and abs(node1.col - node2.col) == 1: # is_diagonal
+        base_cost = COST_DIAGONAL
+
+    # Cost to enter node2 is base_cost multiplied by node2's terrain difficulty
+    return base_cost * node2.terrain_cost
 
 def heuristic(node_a, node_b, allow_diagonal=True):
     """

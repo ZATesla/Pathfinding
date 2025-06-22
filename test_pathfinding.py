@@ -481,6 +481,88 @@ class TestPathfindingAlgorithms(unittest.TestCase):
         expected_no_diag_obs_moved = [(0,0),(0,1),(0,2),(0,3),(1,3),(2,3),(3,3)]
         self.assertEqual(self._convert_path_to_coords(path_nodes2_no_diag), expected_no_diag_obs_moved, "D* Lite (no-diag) moved target path with obs incorrect")
 
+    # --- Tests for Terrain Costs ---
+    def test_path_with_terrain_costs_dijkstra(self):
+        for allow_diag in [True, False]:
+            grid = Grid(3, 3)
+            grid.set_allow_diagonal_movement(allow_diag)
+            grid.start_node = grid.nodes[0][0]
+            grid.end_node = grid.nodes[0][2]
+
+            # Make node (0,1) high cost
+            grid.nodes[0][1].terrain_cost = 10.0
+            grid.update_all_node_neighbors() # Not strictly necessary for terrain cost change alone unless it also changes obstacle status
+
+            path_nodes, _, _ = dijkstra(grid, grid.start_node, grid.end_node)
+            path_coords = self._convert_path_to_coords(path_nodes)
+
+            # Expected path should avoid (0,1) and go around if cheaper
+            # If allow_diag is True: (0,0)->(1,0)->(1,1)->(1,2)->(0,2) or (0,0)->(1,1)->(0,2) or (0,0)->(1,1)->(1,2)
+            # Cost of (0,0)->(0,1)->(0,2) = 1*1 + 1*10 = 11 (if (0,1) is normal cost, it's 1+1=2)
+            # Path (0,0)->(1,0)->(1,1)->(1,2)->(0,2) (cardinal only, costs 1+1+1+1=4)
+            # Path (0,0)->(1,1)->(0,2) (diag, diag, costs sqrt(2) + sqrt(2) ~ 2.828)
+            # Path (0,0)->(1,0)->(0,1) - no this is not right
+            # Path (0,0)->(1,1)->(1,2)->(0,2)
+            #    (0,0)->(1,1) cost sqrt(2)*1
+            #    (1,1)->(1,2) cost 1*1
+            #    (1,2)->(0,2) cost 1*1
+            # Total ~3.414
+            if allow_diag:
+                 # Path (0,0)->(1,1)->(0,2) has cost sqrt(2)*1 (to (1,1)) + sqrt(2)*1 (to (0,2)) = 2*sqrt(2) ~ 2.828
+                 # Path (0,0)->(1,0)->(1,1)->(1,2)->(0,2) - This is too long.
+                 # Direct: (0,0)->(0,1)->(0,2) cost = 1*node(0,1).terrain_cost + 1*node(0,2).terrain_cost = 1*10 + 1*1 = 11
+                 # Around: (0,0)->(1,0)->(1,1)->(1,2)->(0,2) (all card) = 1+1+1+1=4
+                 # Around diag: (0,0)->(1,1)->(0,2) (diag, diag)= sqrt(2)+sqrt(2) = 2.828
+                 # Around diag/card: (0,0)->(1,1)->(1,2)->(0,2) = sqrt(2)+1+1 = 3.414
+                expected = [(0,0), (1,1), (0,2)]
+                self.assertEqual(path_coords, expected, f"Dijkstra terrain (diag={allow_diag}) path incorrect, got {path_coords}")
+            else: # No diagonal
+                # Direct: (0,0)->(0,1)->(0,2) cost = 1*10 + 1*1 = 11
+                # Around: (0,0)->(1,0)->(1,1)->(1,2)->(0,2) cost = 1+1+1+1 = 4
+                expected = [(0,0), (1,0), (1,1), (1,2), (0,2)]
+                self.assertEqual(path_coords, expected, f"Dijkstra terrain (diag={allow_diag}) path incorrect, got {path_coords}")
+
+    def test_path_with_terrain_costs_a_star(self):
+        for allow_diag in [True, False]:
+            grid = Grid(3, 3)
+            grid.set_allow_diagonal_movement(allow_diag)
+            grid.start_node = grid.nodes[0][0]
+            grid.end_node = grid.nodes[0][2]
+
+            grid.nodes[0][1].terrain_cost = 10.0
+            # grid.update_all_node_neighbors() # Not strictly necessary
+
+            path_nodes, _, _ = a_star(grid, grid.start_node, grid.end_node)
+            path_coords = self._convert_path_to_coords(path_nodes)
+
+            if allow_diag:
+                expected = [(0,0), (1,1), (0,2)]
+                self.assertEqual(path_coords, expected, f"A* terrain (diag={allow_diag}) path incorrect, got {path_coords}")
+            else:
+                expected = [(0,0), (1,0), (1,1), (1,2), (0,2)]
+                self.assertEqual(path_coords, expected, f"A* terrain (diag={allow_diag}) path incorrect, got {path_coords}")
+
+    def test_path_with_terrain_costs_d_star_lite(self):
+        for allow_diag in [True, False]:
+            reset_d_star_lite_internals()
+            grid = Grid(3, 3)
+            grid.set_allow_diagonal_movement(allow_diag)
+            grid.start_node = grid.nodes[0][0]
+            grid.set_target_node(0, 2) # grid.end_node
+
+            grid.nodes[0][1].terrain_cost = 10.0
+            # grid.update_all_node_neighbors()
+
+            path_nodes, _, _ = run_d_star_lite(grid, grid.start_node, grid.end_node, heuristic)
+            path_coords = self._convert_path_to_coords(path_nodes)
+
+            if allow_diag:
+                expected = [(0,0), (1,1), (0,2)]
+                self.assertEqual(path_coords, expected, f"D* Lite terrain (diag={allow_diag}) path incorrect, got {path_coords}")
+            else:
+                expected = [(0,0), (1,0), (1,1), (1,2), (0,2)]
+                self.assertEqual(path_coords, expected, f"D* Lite terrain (diag={allow_diag}) path incorrect, got {path_coords}")
+
 
 if __name__ == '__main__':
     unittest.main()

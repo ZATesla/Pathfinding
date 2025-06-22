@@ -13,7 +13,12 @@
     *   Uses sqrt(2) for diagonal costs, 1 for cardinal.
     *   Prevents cutting corners through obstacles.
     *   Heuristics (Octile/Manhattan) adapt to this setting.
-7.  Add support for weighted nodes/edges (e.g., different terrain types having different movement costs).
+7.  Add support for weighted nodes/edges (e.g., different terrain types having different movement costs). - **COMPLETED**
+    *   Node class has `terrain_cost` attribute.
+    *   `get_move_cost` incorporates `node.terrain_cost`.
+    *   GUI allows painting Normal (1.0), Mud (3.0), Water (5.0) terrain costs using keys 1, 2, 3.
+    *   Terrain types are visually represented.
+    *   Start/End nodes and obstacles reset to default terrain cost.
 8.  Implement Bidirectional Search algorithm.
 9.  Implement Jump Point Search (JPS) for grid-based speed-up over A*.
 10. Optimize D* Lite: Implement efficient updates when obstacles change or target moves, instead of full re-computation (current `main.py` does a full replan).
