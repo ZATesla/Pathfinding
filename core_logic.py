@@ -47,8 +47,9 @@ class Node:
         self.is_in_open_set_for_algorithm = False
         self.is_part_of_path = False
 
-    def add_neighbors(self, grid_nodes_matrix): # Renamed from grid_nodes for clarity
+    def add_neighbors(self, grid_nodes_matrix, allow_diagonal=True):
         self.neighbors = []
+        # Cardinal directions
         # Down
         if self.row < self.total_rows - 1 and not grid_nodes_matrix[self.row + 1][self.col].is_obstacle:
             self.neighbors.append(grid_nodes_matrix[self.row + 1][self.col])
@@ -62,21 +63,54 @@ class Node:
         if self.col > 0 and not grid_nodes_matrix[self.row][self.col - 1].is_obstacle:
             self.neighbors.append(grid_nodes_matrix[self.row][self.col - 1])
 
+        if allow_diagonal:
+            # Diagonal directions
+            # Down-Right
+            if self.row < self.total_rows - 1 and self.col < self.total_cols - 1 and \
+               not grid_nodes_matrix[self.row + 1][self.col + 1].is_obstacle:
+                # Check for corner cutting: make sure adjacent cardinal cells are not obstacles
+                if not grid_nodes_matrix[self.row + 1][self.col].is_obstacle or \
+                   not grid_nodes_matrix[self.row][self.col + 1].is_obstacle:
+                    self.neighbors.append(grid_nodes_matrix[self.row + 1][self.col + 1])
+            # Down-Left
+            if self.row < self.total_rows - 1 and self.col > 0 and \
+               not grid_nodes_matrix[self.row + 1][self.col - 1].is_obstacle:
+                if not grid_nodes_matrix[self.row + 1][self.col].is_obstacle or \
+                   not grid_nodes_matrix[self.row][self.col - 1].is_obstacle:
+                    self.neighbors.append(grid_nodes_matrix[self.row + 1][self.col - 1])
+            # Up-Right
+            if self.row > 0 and self.col < self.total_cols - 1 and \
+               not grid_nodes_matrix[self.row - 1][self.col + 1].is_obstacle:
+                if not grid_nodes_matrix[self.row - 1][self.col].is_obstacle or \
+                   not grid_nodes_matrix[self.row][self.col + 1].is_obstacle:
+                    self.neighbors.append(grid_nodes_matrix[self.row - 1][self.col + 1])
+            # Up-Left
+            if self.row > 0 and self.col > 0 and \
+               not grid_nodes_matrix[self.row - 1][self.col - 1].is_obstacle:
+                if not grid_nodes_matrix[self.row - 1][self.col].is_obstacle or \
+                   not grid_nodes_matrix[self.row][self.col - 1].is_obstacle:
+                    self.neighbors.append(grid_nodes_matrix[self.row - 1][self.col - 1])
+
 
 class Grid:
     def __init__(self, rows, cols, cell_width_for_nodes=0, cell_height_for_nodes=0): # cell_width/height optional
         self.rows = rows
         self.cols = cols
+        self.allow_diagonal_movement = True # Default to True, can be changed by GUI
         # Store cell_width/height if nodes need them, but Grid itself doesn't use them for logic
         self.nodes = [[Node(r, c, rows, cols, cell_width_for_nodes, cell_height_for_nodes) for c in range(cols)] for r in range(rows)]
         self.start_node = None
         self.end_node = None
-        self.update_all_node_neighbors()
+        self.update_all_node_neighbors() # Initial update
 
-    def update_all_node_neighbors(self):
+    def update_all_node_neighbors(self): # Pass the diagonal movement setting
         for r in range(self.rows):
             for c in range(self.cols):
-                self.nodes[r][c].add_neighbors(self.nodes) # Pass the matrix of nodes
+                self.nodes[r][c].add_neighbors(self.nodes, self.allow_diagonal_movement)
+
+    def set_allow_diagonal_movement(self, allow: bool):
+        self.allow_diagonal_movement = allow
+        self.update_all_node_neighbors() # Re-calculate neighbors when this setting changes
 
     def reset_algorithm_states(self): # Resets states on all nodes
         for r in range(self.rows):
@@ -108,29 +142,52 @@ class Grid:
 
 # --- Pathfinding Algorithms ---
 
-def heuristic(node_a, node_b):
-    return abs(node_a.row - node_b.row) + abs(node_a.col - node_b.col)
+# Cost function for moving between adjacent nodes
+COST_CARDINAL = 1.0
+COST_DIAGONAL = 1.41421356 # sqrt(2) - can be adjusted, e.g. to 1.0 for Chebyshev distance like behavior
+
+def get_move_cost(node1, node2):
+    """Returns the cost of moving from node1 to node2."""
+    is_diagonal = abs(node1.row - node2.row) == 1 and abs(node1.col - node2.col) == 1
+    if is_diagonal:
+        return COST_DIAGONAL
+    return COST_CARDINAL
+
+def heuristic(node_a, node_b, allow_diagonal=True):
+    """
+    Calculates heuristic distance.
+    Uses Manhattan distance if diagonal movement is not allowed.
+    Uses Octile distance (approximation) if diagonal movement is allowed.
+    """
+    dx = abs(node_a.col - node_b.col)
+    dy = abs(node_a.row - node_b.row)
+
+    if allow_diagonal:
+        # Octile distance (D_diag * min(dx, dy) + D_cardinal * (max(dx, dy) - min(dx, dy)))
+        # Assumes COST_CARDINAL = 1, COST_DIAGONAL = sqrt(2) or similar
+        return COST_DIAGONAL * min(dx, dy) + COST_CARDINAL * (max(dx, dy) - min(dx, dy))
+    else:
+        # Manhattan distance
+        return COST_CARDINAL * (dx + dy)
+
 
 def dijkstra(grid, start_node, end_node):
     if not start_node or not end_node or start_node.is_obstacle or end_node.is_obstacle:
-        # print("Start or end node is missing or is an obstacle.") # Silenced for tests
         return [], [], []
 
     visited_nodes_in_order = []
-    start_node.g = 0 # Use .g
-    start_node.h_score = 0
-    start_node.f_score = start_node.g + start_node.h_score # Use .g
+    start_node.g = 0
+    start_node.h_score = 0 # Dijkstra doesn't use heuristic for path decision but can store it
+    start_node.f_score = start_node.g
 
-    # For Dijkstra, f_score is effectively g_score as h_score is 0.
-    # The __lt__ method on Node uses f_score, so this is fine.
     pq = [(start_node.f_score, start_node)]
     open_set_tracker = {start_node}
 
     while pq:
         current_f_score, current_node = heapq.heappop(pq)
 
-        if current_node not in open_set_tracker: # Node already processed or removed
-             continue
+        if current_node not in open_set_tracker:
+            continue
         open_set_tracker.remove(current_node)
 
         visited_nodes_in_order.append(current_node)
@@ -141,22 +198,21 @@ def dijkstra(grid, start_node, end_node):
             while temp:
                 path.append(temp)
                 temp = temp.previous_node
-            final_open_set = list(open_set_tracker)
-            return path[::-1], visited_nodes_in_order, final_open_set
+            return path[::-1], visited_nodes_in_order, list(open_set_tracker)
 
-        if current_f_score > current_node.f_score :
+        if current_f_score > current_node.f_score: # Already found a shorter path to this node
             continue
 
         for neighbor in current_node.neighbors:
-            temp_g = current_node.g + 1 # Use .g
+            cost = get_move_cost(current_node, neighbor)
+            temp_g = current_node.g + cost
 
-            if temp_g < neighbor.g: # Use .g
+            if temp_g < neighbor.g:
                 neighbor.previous_node = current_node
-                neighbor.g = temp_g # Use .g
-                neighbor.h_score = 0
-                neighbor.f_score = neighbor.g + neighbor.h_score # Use .g
+                neighbor.g = temp_g
+                neighbor.f_score = neighbor.g # For Dijkstra, f_score is g_score
 
-                if neighbor not in open_set_tracker: # Add to PQ only if not processed from open set
+                if neighbor not in open_set_tracker:
                     heapq.heappush(pq, (neighbor.f_score, neighbor))
                     open_set_tracker.add(neighbor)
                 # If it was in open_set_tracker but already popped, this new path is longer or equal.
@@ -174,15 +230,19 @@ def dijkstra(grid, start_node, end_node):
 # The heuristic is from the current node to the start node.
 # Note: In some D* Lite versions, km (key modifier for moved start) is added to h.
 # For now, assuming start node is fixed for a given planning episode.
-def calculate_d_star_key(node, start_node, goal_node, heuristic_func): # goal_node is not used for key's h here
-    h_val = heuristic_func(node, start_node)
+def calculate_d_star_key(node, start_node, goal_node, heuristic_func, allow_diagonal): # Added allow_diagonal
+    h_val = heuristic_func(node, start_node, allow_diagonal) # Pass allow_diagonal to heuristic
     min_g_rhs = min(node.g, node.rhs)
     return (min_g_rhs + h_val, min_g_rhs)
 
 _d_star_pq = [] # Global-like for the module, or pass around
 _d_star_open_set_tracker = set() # Tracks nodes conceptually in PQ
 
-def d_star_lite_initialize(grid, start_node, goal_node, heuristic_func):
+# Need to pass allow_diagonal down to where heuristic is called.
+# The grid object (which knows about allow_diagonal) is available in run_d_star_lite.
+# We can pass it from there.
+
+def d_star_lite_initialize(grid, start_node, goal_node, heuristic_func): # allow_diagonal implicitly from grid
     global _d_star_pq, _d_star_open_set_tracker
     _d_star_pq = []
     _d_star_open_set_tracker = set()
@@ -190,20 +250,18 @@ def d_star_lite_initialize(grid, start_node, goal_node, heuristic_func):
     grid.reset_algorithm_states() # Resets g, rhs for all nodes to inf
 
     goal_node.rhs = 0
-    key = calculate_d_star_key(goal_node, start_node, goal_node, heuristic_func) # Pass goal_node as current_node_for_h_calc_placeholder
+    key = calculate_d_star_key(goal_node, start_node, goal_node, heuristic_func, grid.allow_diagonal_movement)
     heapq.heappush(_d_star_pq, (key, goal_node))
     _d_star_open_set_tracker.add(goal_node)
 
-    # grid.start_node = start_node # Ensure grid object knows its start/goal
-    # grid.end_node = goal_node   # These should be set before calling run_d_star_lite
 
-def d_star_lite_update_node(node, grid, start_node, goal_node, heuristic_func):
+def d_star_lite_update_node(node, grid, start_node, goal_node, heuristic_func): # allow_diagonal implicitly from grid
     global _d_star_pq, _d_star_open_set_tracker
 
     if node != goal_node:
         min_rhs = float('inf')
         for successor in node.neighbors: # Successors are just neighbors in grid
-            cost = 1 # Assuming uniform cost
+            cost = get_move_cost(node, successor) # Use get_move_cost
             min_rhs = min(min_rhs, successor.g + cost)
         node.rhs = min_rhs
 
@@ -218,89 +276,59 @@ def d_star_lite_update_node(node, grid, start_node, goal_node, heuristic_func):
     # it will be re-added. The main loop (compute_shortest_path) handles outdated entries.
     # If we want to be more explicit about removing from _d_star_open_set_tracker if g == rhs:
     if node in _d_star_open_set_tracker and node.g == node.rhs:
-         # Conceptually, it might be removed if consistent and in PQ, but D* adds if g != rhs
-         # Forcing removal here might be complex if not using a PQ supporting direct removal.
-         # Let's rely on the "add if inconsistent" logic below.
-         pass
+         pass # Rely on "add if inconsistent" logic
 
 
     if node.g != node.rhs:
-        key = calculate_d_star_key(node, start_node, goal_node, heuristic_func)
+        key = calculate_d_star_key(node, start_node, goal_node, heuristic_func, grid.allow_diagonal_movement)
         heapq.heappush(_d_star_pq, (key, node))
         _d_star_open_set_tracker.add(node)
     elif node in _d_star_open_set_tracker: # g == rhs, but it's still in open set tracker
-        # This means it became consistent. Conceptually remove from PQ.
-        # Actual removal from heapq is hard. We mark it in tracker.
-        # The main loop, when popping, should check if node is still valid to process.
-        _d_star_open_set_tracker.remove(node)
+        _d_star_open_set_tracker.remove(node) # Became consistent, remove from conceptual open set
 
 
-def d_star_lite_compute_shortest_path(grid, start_node, goal_node, heuristic_func):
+def d_star_lite_compute_shortest_path(grid, start_node, goal_node, heuristic_func): # allow_diagonal from grid
     global _d_star_pq, _d_star_open_set_tracker
 
-    processed_nodes_for_viz = [] # For visualization
+    processed_nodes_for_viz = []
 
     # Loop while top_key < key(start) OR start.rhs != start.g
-    # heapq.nsmallest(1, _d_star_pq)[0][0] gives top_key without popping
-    while (_d_star_pq and calculate_d_star_key(start_node, start_node, goal_node, heuristic_func) > _d_star_pq[0][0]) \
+    while (_d_star_pq and calculate_d_star_key(start_node, start_node, goal_node, heuristic_func, grid.allow_diagonal_movement) > _d_star_pq[0][0]) \
           or start_node.g != start_node.rhs:
 
-        if not _d_star_pq: break # Should not happen if start is reachable and inconsistent
+        if not _d_star_pq: break
 
         k_old_popped, u_node = heapq.heappop(_d_star_pq)
 
-        if u_node not in _d_star_open_set_tracker and u_node.g == u_node.rhs : # Already processed and consistent or explicitly removed
-            # This check helps ignore outdated entries if node was re-added with better key
-            # or became consistent and was conceptually removed from open set.
+        if u_node not in _d_star_open_set_tracker and u_node.g == u_node.rhs :
             continue
 
-        # If it was in open_set_tracker, it's now being processed from PQ, so remove from conceptual open set.
         if u_node in _d_star_open_set_tracker:
              _d_star_open_set_tracker.remove(u_node)
 
         processed_nodes_for_viz.append(u_node)
 
-        k_new_recalc = calculate_d_star_key(u_node, start_node, goal_node, heuristic_func)
+        k_new_recalc = calculate_d_star_key(u_node, start_node, goal_node, heuristic_func, grid.allow_diagonal_movement)
 
-        if k_old_popped < k_new_recalc: # Condition 1: Node got worse or heuristic changed
+        if k_old_popped < k_new_recalc:
             heapq.heappush(_d_star_pq, (k_new_recalc, u_node))
             _d_star_open_set_tracker.add(u_node)
-        elif u_node.g > u_node.rhs: # Condition 2: Locally overconsistent (found a better way to u_node)
+        elif u_node.g > u_node.rhs:
             u_node.g = u_node.rhs
-            for pred_node in u_node.neighbors: # Predecessors are neighbors
+            for pred_node in u_node.neighbors:
                 d_star_lite_update_node(pred_node, grid, start_node, goal_node, heuristic_func)
-        else: # Condition 3: Locally underconsistent (path through u_node got worse)
+        else: # u_node.g < u_node.rhs (locally underconsistent)
             g_old = u_node.g
             u_node.g = float('inf')
-            # Update current node u_node itself and its predecessors
-            # Order might matter: update predecessors first, then current node
+            # Update predecessors of u_node
             for pred_node in u_node.neighbors:
-                if pred_node != goal_node: # Goal's rhs is 0 by definition
-                     # If pred_node.rhs was based on g_old of u_node, it needs update
-                     # This implies re-evaluating pred_node.rhs, which update_node does.
-                     if pred_node.rhs == (g_old + 1): # Heuristic check if it was indeed through u
-                          if pred_node != goal_node:
-                            min_rhs = float('inf')
-                            for succ_of_pred in pred_node.neighbors:
-                                min_rhs = min(min_rhs, succ_of_pred.g + 1)
-                            pred_node.rhs = min_rhs
-                # And then, if inconsistent, it will be added to PQ by update_node
-                if pred_node.g != pred_node.rhs and pred_node not in _d_star_open_set_tracker:
-                     key_pred = calculate_d_star_key(pred_node, start_node, goal_node, heuristic_func)
-                     heapq.heappush(_d_star_pq, (key_pred, pred_node))
-                     _d_star_open_set_tracker.add(pred_node)
-                elif pred_node.g == pred_node.rhs and pred_node in _d_star_open_set_tracker:
-                    _d_star_open_set_tracker.remove(pred_node)
+                # If pred_node's rhs was calculated through u_node, it might need update
+                # This is complex: check if pred_node.rhs == g_old + cost(pred_node, u_node)
+                # Simpler: just call update_node, it will re-calculate rhs if necessary.
+                d_star_lite_update_node(pred_node, grid, start_node, goal_node, heuristic_func)
 
-
-            # Update current node u_node itself (its g changed to inf)
-            # This will re-evaluate its rhs and add to PQ if inconsistent
-            if u_node.g != u_node.rhs and u_node not in _d_star_open_set_tracker:
-                 key_u = calculate_d_star_key(u_node, start_node, goal_node, heuristic_func)
-                 heapq.heappush(_d_star_pq, (key_u, u_node))
-                 _d_star_open_set_tracker.add(u_node)
-            elif u_node.g == u_node.rhs and u_node in _d_star_open_set_tracker:
-                _d_star_open_set_tracker.remove(u_node)
+            # Update u_node itself (its g changed to inf, its rhs might need re-evaluation)
+            d_star_lite_update_node(u_node, grid, start_node, goal_node, heuristic_func)
 
 
     # Path Reconstruction
@@ -312,19 +340,26 @@ def d_star_lite_compute_shortest_path(grid, start_node, goal_node, heuristic_fun
     curr = start_node
     path.append(curr)
     while curr != goal_node:
-        min_cost = float('inf')
+        min_total_cost_to_goal = float('inf') # This should be g(neighbor) + cost(curr, neighbor) effectively
         next_node = None
-        if not curr.neighbors: # Should not happen if goal is reachable
+        if not curr.neighbors:
             print("Error in path reconstruction: current node has no neighbors.")
             return [], processed_nodes_for_viz, list(_d_star_open_set_tracker)
 
         for neighbor in curr.neighbors:
-            cost = 1 # Cost to move to neighbor
+            cost_to_neighbor = get_move_cost(curr, neighbor)
             # Path is built by moving to successor s' that has lowest g(s') + cost(curr, s')
-            # This is actually just finding the neighbor with the smallest g value.
-            if neighbor.g < min_cost: # This should be g_val + cost, but cost is 1 and we need lowest g
-                min_cost = neighbor.g
+            # For D* Lite, we move towards the neighbor that minimizes cost_to_neighbor + g(neighbor)
+            # This is essentially finding the neighbor with the smallest g-value if costs are uniform (1).
+            # With variable costs, we need to check cost_to_neighbor + neighbor.g
+            current_path_cost_via_neighbor = cost_to_neighbor + neighbor.g
+            if current_path_cost_via_neighbor < min_total_cost_to_goal:
+                min_total_cost_to_goal = current_path_cost_via_neighbor
                 next_node = neighbor
+            elif current_path_cost_via_neighbor == min_total_cost_to_goal: # Tie-breaking: prefer diagonal if possible or stick to one
+                 if next_node is None: # First one found
+                     next_node = neighbor
+                 # Could add more sophisticated tie-breaking here if needed (e.g. prefer diagonal)
 
         if next_node is None :
              # This can happen if all neighbors have g = inf, or start_node.g itself is inf
@@ -387,9 +422,10 @@ def a_star(grid, start_node, end_node):
         return [], [], []
 
     visited_nodes_in_order = []
-    start_node.g = 0 # Use .g
-    start_node.h_score = heuristic(start_node, end_node)
-    start_node.f_score = start_node.g + start_node.h_score # Use .g
+    start_node.g = 0
+    # Pass grid.allow_diagonal_movement to heuristic
+    start_node.h_score = heuristic(start_node, end_node, grid.allow_diagonal_movement)
+    start_node.f_score = start_node.g + start_node.h_score
 
     pq = [(start_node.f_score, start_node)]
     open_set_tracker = {start_node}
@@ -409,23 +445,23 @@ def a_star(grid, start_node, end_node):
             while temp:
                 path.append(temp)
                 temp = temp.previous_node
-            final_open_set = list(open_set_tracker)
-            return path[::-1], visited_nodes_in_order, final_open_set
+            return path[::-1], visited_nodes_in_order, list(open_set_tracker)
 
         if current_f_score > current_node.f_score: # Optimization
-             continue
+            continue
 
         for neighbor in current_node.neighbors:
-            temp_g = current_node.g + 1 # Use .g
+            cost = get_move_cost(current_node, neighbor)
+            temp_g = current_node.g + cost
 
-            if temp_g < neighbor.g: # Use .g
+            if temp_g < neighbor.g:
                 neighbor.previous_node = current_node
-                neighbor.g = temp_g # Use .g
-                neighbor.h_score = heuristic(neighbor, end_node)
-                neighbor.f_score = neighbor.g + neighbor.h_score # Use .g
+                neighbor.g = temp_g
+                neighbor.h_score = heuristic(neighbor, end_node, grid.allow_diagonal_movement)
+                neighbor.f_score = neighbor.g + neighbor.h_score
 
-                # Add to PQ even if already in open_set_tracker (i.e. in pq).
-                # The check `if current_node not in open_set_tracker` at loop start
+                # Add to PQ even if already in open_set_tracker.
+                # The check at the start of the loop handles cases where a node is pulled
                 # handles cases where a node is pulled from PQ after a shorter path to it was already found and processed.
                 heapq.heappush(pq, (neighbor.f_score, neighbor))
                 open_set_tracker.add(neighbor) # Ensure it's marked as "conceptually" open
@@ -433,5 +469,3 @@ def a_star(grid, start_node, end_node):
     # print("No path found by A*.") # Silenced for tests
     final_open_set = list(open_set_tracker)
     return [], visited_nodes_in_order, final_open_set
-
-```

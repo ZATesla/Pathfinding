@@ -8,7 +8,11 @@
 5.  Refactor `main.py` to further separate GUI components from event handling logic (e.g., into classes).
 
 ## Algorithm & Core Logic Improvements:
-6.  Implement diagonal movement option for algorithms (with appropriate cost adjustment).
+6.  Implement diagonal movement option for algorithms (with appropriate cost adjustment). - **COMPLETED**
+    *   Allows toggling diagonal moves.
+    *   Uses sqrt(2) for diagonal costs, 1 for cardinal.
+    *   Prevents cutting corners through obstacles.
+    *   Heuristics (Octile/Manhattan) adapt to this setting.
 7.  Add support for weighted nodes/edges (e.g., different terrain types having different movement costs).
 8.  Implement Bidirectional Search algorithm.
 9.  Implement Jump Point Search (JPS) for grid-based speed-up over A*.

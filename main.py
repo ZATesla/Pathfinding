@@ -99,17 +99,19 @@ def main_gui():
     }
 
     def update_caption():
-        nonlocal setting_start, setting_end, setting_target_d_lite, current_algorithm
+        nonlocal setting_start, setting_end, setting_target_d_lite, current_algorithm, grid_instance
         mode_text = ""
         if setting_start: mode_text = "Set Start"
         elif setting_end: mode_text = "Set End"
         elif setting_target_d_lite: mode_text = "Set D* Target (LClick)"
 
-        base_caption = f"Algorithm: {ALGO_NAMES[current_algorithm]}"
+        diag_status = "ON" if grid_instance.allow_diagonal_movement else "OFF"
+        base_caption = f"Algorithm: {ALGO_NAMES[current_algorithm]} | Diagonal: {diag_status}"
+
         if mode_text:
             caption = f"{base_caption} | {mode_text}"
         else:
-            bindings = "S:Start, E:End, Enter:Run, R:Reset, K:Dijkstra, A:A*, L:D*Lite"
+            bindings = "S:Start, E:End, D:ToggleDiag, Enter:Run, R:Reset, K:Dijkstra, A:A*, L:D*Lite"
             if current_algorithm == "D_STAR_LITE":
                 bindings += ", T:Move Target"
             caption = f"{base_caption} | {bindings}"
@@ -161,8 +163,15 @@ def main_gui():
                         current_algorithm = "DIJKSTRA"
                         setting_target_d_lite = False
 
+                    elif event.key == pygame.K_d: # Toggle Diagonal Movement
+                        grid_instance.set_allow_diagonal_movement(not grid_instance.allow_diagonal_movement)
+                        # No need to reset algorithm states here unless an algorithm is running/paused
+                        # update_all_node_neighbors is called by set_allow_diagonal_movement
+                        print(f"Diagonal movement {'enabled' if grid_instance.allow_diagonal_movement else 'disabled'}")
+
+
                     # Mode Selection (Start, End, D* Target)
-                    if event.key == pygame.K_s:
+                    if event.key == pygame.K_s: # Intentionally after K_d to allow mode setting
                         setting_start = True
                         setting_end = False
                         setting_target_d_lite = False
@@ -178,27 +187,39 @@ def main_gui():
                     elif event.key == pygame.K_RETURN: # Enter key to run selected algorithm
                         if grid_instance.start_node and grid_instance.end_node:
                             grid_instance.reset_algorithm_states()
+                            # grid_instance.update_all_node_neighbors() # This is now handled by set_allow_diagonal_movement or grid init
+                                                                    # However, if obstacles were added/removed, it should be called.
+                                                                    # Obstacle toggling calls it. Reset calls it via new Grid().
+                                                                    # Explicitly calling here ensures neighbors are fresh if state changed some other way.
                             grid_instance.update_all_node_neighbors()
 
+
                             algo_func = ALGORITHMS[current_algorithm]
-                            print(f"Running {ALGO_NAMES[current_algorithm]} Algorithm...")
+                            algo_name_display = ALGO_NAMES[current_algorithm]
+                            diag_status_msg = "with" if grid_instance.allow_diagonal_movement else "without"
+                            print(f"Running {algo_name_display} Algorithm {diag_status_msg} diagonal movement...")
 
                             if current_algorithm == "D_STAR_LITE":
+                                # Heuristic is passed, and it will use grid.allow_diagonal_movement internally
                                 path, visited, open_set = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node, heuristic)
                             else:
+                                # a_star and dijkstra will also use grid.allow_diagonal_movement via heuristic or get_move_cost
                                 path, visited, open_set = algo_func(grid_instance, grid_instance.start_node, grid_instance.end_node)
 
                             if path:
-                                print(f"{ALGO_NAMES[current_algorithm]} Path found. Length: {len(path)}")
+                                print(f"{algo_name_display} Path found. Length: {len(path)}")
                                 start_animation(path, visited, open_set)
                             else:
-                                print(f"{ALGO_NAMES[current_algorithm]} No path found.")
+                                print(f"{algo_name_display} No path found.")
                                 start_animation([], visited, open_set)
                         else:
                             print("Error: Set Start and End nodes before running an algorithm.")
 
                     elif event.key == pygame.K_r: # Reset grid
+                        # Preserve current diagonal setting when resetting
+                        current_diag_setting = grid_instance.allow_diagonal_movement
                         grid_instance = Grid(GRID_ROWS, GRID_COLS, CELL_WIDTH, CELL_HEIGHT)
+                        grid_instance.set_allow_diagonal_movement(current_diag_setting) # Restore
                         setting_start = False
                         setting_end = False
                         setting_target_d_lite = False
