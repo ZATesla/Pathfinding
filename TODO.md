@@ -43,7 +43,10 @@
 12. Add a visual indicator for the current algorithm selected on the GUI itself (not just window caption). - **COMPLETED**
     *   Displays "Algorithm: [Name]" at the top-left of the screen.
     *   Updates dynamically when algorithm is changed.
-13. Allow users to save and load grid configurations (obstacles, start/end points).
+13. Allow users to save and load grid configurations (obstacles, start/end points). - **COMPLETED**
+    *   Saves to/loads from `grid_config.json`.
+    *   Includes dimensions, start/end, obstacles, terrain, diagonal settings.
+    *   GUI controls: F5 (Save), F6 (Load).
 14. Implement adjustable animation speed for algorithm visualization.
 15. Display path length and number of nodes visited/expanded after an algorithm run.
 16. Add a "Clear Path" button to remove only the visualized path/visited nodes without resetting obstacles/start/end.

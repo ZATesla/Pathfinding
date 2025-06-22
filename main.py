@@ -44,7 +44,108 @@ TERRAIN_COSTS = {
 # Key 3: Paint Water (cost 5)
 
 
+import json # For saving and loading
+
 # --- GUI specific Helper Functions ---
+
+def save_grid_to_file(grid_instance: Grid, filepath: str):
+    """Saves the current grid configuration to a JSON file."""
+    config = {
+        "dimensions": {"rows": grid_instance.rows, "cols": grid_instance.cols},
+        "start_node": grid_instance.start_node.get_pos() if grid_instance.start_node else None,
+        "end_node": grid_instance.end_node.get_pos() if grid_instance.end_node else None,
+        "allow_diagonal_movement": grid_instance.allow_diagonal_movement,
+        "obstacles": [],
+        "terrain_costs": []
+    }
+    for r in range(grid_instance.rows):
+        for c in range(grid_instance.cols):
+            node = grid_instance.nodes[r][c]
+            if node.is_obstacle:
+                config["obstacles"].append([r, c])
+            # Only save terrain if not default (1.0)
+            # Check against TERRAIN_COSTS[1]["cost"] for robustness if default changes
+            if node.terrain_cost != TERRAIN_COSTS[1]["cost"]:
+                config["terrain_costs"].append({"coords": [r,c], "cost": node.terrain_cost})
+
+    try:
+        with open(filepath, 'w') as f:
+            json.dump(config, f, indent=4)
+        print(f"Grid configuration saved to {filepath}")
+        return True
+    except IOError as e:
+        print(f"Error saving grid to {filepath}: {e}")
+        return False
+
+def load_grid_from_file(filepath: str, default_rows: int, default_cols: int, cell_width: int, cell_height: int) -> Grid | None:
+    """Loads a grid configuration from a JSON file."""
+    try:
+        with open(filepath, 'r') as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        print(f"Error: File {filepath} not found.")
+        return None
+    except json.JSONDecodeError:
+        print(f"Error: Could not decode JSON from {filepath}.")
+        return None
+    except IOError as e:
+        print(f"Error loading grid from {filepath}: {e}")
+        return None
+
+    # For now, we use default_rows/cols, but could use config["dimensions"]
+    # rows = config.get("dimensions", {}).get("rows", default_rows)
+    # cols = config.get("dimensions", {}).get("cols", default_cols)
+    # For simplicity, using fixed GUI dimensions. Future enhancement could adapt window.
+
+    new_grid = Grid(default_rows, default_cols, cell_width, cell_height)
+
+    # Set diagonal movement
+    new_grid.set_allow_diagonal_movement(config.get("allow_diagonal_movement", True))
+
+    # Set start node
+    start_pos = config.get("start_node")
+    if start_pos and isinstance(start_pos, list) and len(start_pos) == 2:
+        r, c = start_pos
+        if 0 <= r < new_grid.rows and 0 <= c < new_grid.cols:
+            new_grid.start_node = new_grid.nodes[r][c]
+            new_grid.start_node.is_obstacle = False # Ensure start is not obstacle
+            new_grid.start_node.terrain_cost = TERRAIN_COSTS[1]["cost"] # Default terrain
+
+    # Set end node
+    end_pos = config.get("end_node")
+    if end_pos and isinstance(end_pos, list) and len(end_pos) == 2:
+        r, c = end_pos
+        if 0 <= r < new_grid.rows and 0 <= c < new_grid.cols:
+            new_grid.end_node = new_grid.nodes[r][c]
+            new_grid.end_node.is_obstacle = False # Ensure end is not obstacle
+            new_grid.end_node.terrain_cost = TERRAIN_COSTS[1]["cost"] # Default terrain
+
+    # Set obstacles
+    obstacles = config.get("obstacles", [])
+    for r, c in obstacles:
+        if 0 <= r < new_grid.rows and 0 <= c < new_grid.cols:
+            node = new_grid.nodes[r][c]
+            if node != new_grid.start_node and node != new_grid.end_node:
+                node.is_obstacle = True
+                node.terrain_cost = TERRAIN_COSTS[1]["cost"] # Obstacles default terrain
+
+    # Set terrain costs
+    terrain_costs_data = config.get("terrain_costs", [])
+    for item in terrain_costs_data:
+        coords = item.get("coords")
+        cost = item.get("cost")
+        if coords and isinstance(coords, list) and len(coords) == 2 and isinstance(cost, (int, float)):
+            r, c = coords
+            if 0 <= r < new_grid.rows and 0 <= c < new_grid.cols:
+                node = new_grid.nodes[r][c]
+                # Only apply if not start/end/obstacle, or if it's non-default terrain being set
+                if not node.is_obstacle and node != new_grid.start_node and node != new_grid.end_node:
+                    node.terrain_cost = float(cost)
+
+    new_grid.update_all_node_neighbors() # Important after setting obstacles
+    print(f"Grid configuration loaded from {filepath}")
+    return new_grid
+
 
 def get_gui_node_from_mouse_pos(mouse_pos, grid_instance: Grid, cell_width, cell_height):
     """Gets the grid node object from a mouse position using core_logic.Grid."""
@@ -162,7 +263,7 @@ def main_gui():
         if mode_text:
             caption = f"{base_caption} | {mode_text}"
         else:
-            bindings = "S:Start, E:End, D:Diag, R:Reset | Algos:K,A,L,B,J(JPS) | Terrain:1-3 | Enter:Run"
+            bindings = "S:Start, E:End, D:Diag, R:Reset | Algos:K,A,L,B,J | Terrain:1-3 | F5:Save, F6:Load | Enter:Run"
             if current_algorithm == "D_STAR_LITE":
                 bindings += ", T:Move Target"
             caption = f"{base_caption} | {bindings}"
@@ -242,6 +343,24 @@ def main_gui():
                     elif event.key == pygame.K_0 or event.key == pygame.K_ESCAPE: # Turn off terrain painting
                         painting_terrain_type = 0
                         print("Terrain painting mode OFF")
+
+                    # Save/Load Grid Configuration
+                    elif event.key == pygame.K_F5: # F5 to Save
+                        save_grid_to_file(grid_instance, "grid_config.json")
+                    elif event.key == pygame.K_F6: # F6 to Load
+                        loaded_grid = load_grid_from_file("grid_config.json", GRID_ROWS, GRID_COLS, CELL_WIDTH, CELL_HEIGHT)
+                        if loaded_grid:
+                            grid_instance = loaded_grid
+                            # Reset states that might be invalid with a new grid
+                            setting_start, setting_end, setting_target_d_lite, painting_terrain_type = False, False, False, 0
+                            d_star_lite_initialized_run = False
+                            d_star_lite_pq.clear()
+                            d_star_lite_open_set_tracker.clear()
+                            animating = False # Stop any ongoing animation
+                            grid_instance.reset_algorithm_states() # Clear visual path/visited states on the new grid
+                            print("Grid loaded. Resetting algorithm states.")
+                        else:
+                            print("Failed to load grid from file.")
 
 
                     # Mode Selection (Start, End, D* Target) - Ensure these turn off terrain painting

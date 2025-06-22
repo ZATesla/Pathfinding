@@ -10,10 +10,10 @@ This project is a Python application that demonstrates various pathfinding algor
 - Support for multiple pathfinding algorithms (Dijkstra, A*, D* Lite).
 - Toggleable diagonal movement for all algorithms.
 - Ability to "paint" different terrain types (Normal, Mud, Water) with varying movement costs.
+- Save and Load grid configurations (obstacles, start/end points, terrain, diagonal settings) to/from `grid_config.json`.
 - Clear display of the starting point, ending point, obstacles, terrain types, visited nodes, and the final path.
 
 ## Algorithms Implemented
-The following pathfinding algorithms are implemented:
 - Dijkstra's Algorithm
 - A* (A-Star) Algorithm
 - D* Lite Algorithm (with efficient replanning for obstacle/target changes)
@@ -38,6 +38,8 @@ The following pathfinding algorithms are implemented:
 - **B**: Select Bidirectional Search.
 - **J**: Select Jump Point Search.
 - **T**: (Only when D* Lite is selected) Enter "Set D* Lite Target Node" mode.
+- **F5**: Save current grid configuration to `grid_config.json`.
+- **F6**: Load grid configuration from `grid_config.json`.
 - **1**: Activate "Paint Normal Terrain" mode (cost 1.0).
 - **2**: Activate "Paint Mud Terrain" mode (cost 3.0).
 - **3**: Activate "Paint Water Terrain" mode (cost 5.0).
