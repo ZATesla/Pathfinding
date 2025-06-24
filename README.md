@@ -22,7 +22,7 @@ This project is a Python application that demonstrates various pathfinding algor
 - A* (A-Star) Algorithm
 - D* Lite Algorithm (with efficient replanning for obstacle/target changes)
 - Bidirectional Search (Dijkstra-based)
-- Jump Point Search (JPS) (Initial placeholder)
+- Jump Point Search (JPS)
 
 ## Key Controls
 - **Mouse Left Click**:
@@ -63,12 +63,26 @@ This project is a Python application that demonstrates various pathfinding algor
   This will install Pygame and any other necessary dependencies.
 
 ### Running the Application
-1.  Navigate to the project directory in your terminal.
-2.  Run the application using:
+1.  **Navigate to the project directory** in your terminal.
+2.  **(Recommended) Create and activate a virtual environment:**
+    ```bash
+    # For Linux/macOS
+    python3 -m venv venv
+    source venv/bin/activate
+    # For Windows
+    # python -m venv venv
+    # .\venv\Scripts\activate
+    ```
+    Using a virtual environment helps manage project dependencies cleanly.
+3.  **Install dependencies:** Ensure you have installed the required packages as mentioned in the "Prerequisites" section:
+    ```bash
+    pip install -r requirements.txt
+    ```
+4.  **Run the application:**
     ```bash
     python main.py
     ```
-3.  A window titled "Pathfinding Visualizer" will open, displaying a grid. This is where you'll interact with the pathfinding algorithms. The window caption also provides a quick reference to common key bindings and the current mode.
+5.  A window titled "Pathfinding Visualizer" will open, displaying a grid. This is where you'll interact with the pathfinding algorithms. The window caption and the info panel at the bottom provide quick references to common key bindings, current mode, and algorithm status.
 
 ### Getting Started with the Visualizer
 Here's a typical workflow to visualize your first path:
@@ -87,7 +101,7 @@ Here's a typical workflow to visualize your first path:
         - `A` for A* (A-Star)
         - `L` for D* Lite
         - `B` for Bidirectional Search
-        - `J` for Jump Point Search (currently a placeholder)
+        - `J` for Jump Point Search
     - The currently selected algorithm is displayed in the info panel at the bottom of the screen.
 5.  **Run the Visualization**:
     - Press the `Enter` key.
@@ -108,6 +122,24 @@ For a full list of controls and their functions, refer to the **Key Controls** s
 ## Key Controls
 (This section remains as is)
 ... (rest of the Key Controls section) ...
+
+## Troubleshooting
+
+- **Issue: `ModuleNotFoundError: No module named 'pygame'` or similar import error.**
+  - **Solution:** This means Pygame (or another dependency) is not installed correctly in your Python environment. Ensure you have activated your virtual environment (if using one) and run:
+    ```bash
+    pip install -r requirements.txt
+    ```
+    Refer to the "Prerequisites" section for more details.
+
+- **Issue: The application window closes immediately or shows an error related to display/graphics.**
+  - **Solution:** This can sometimes happen if there are issues with your graphics drivers or Pygame's initialization on your system.
+    - Ensure your graphics drivers are up to date.
+    - If you are on a headless system (like a server without a monitor) or using SSH without X11 forwarding, Pygame (which requires a display) will not be able to run. This application is designed for desktop use.
+    - Try running a simpler Pygame example to see if Pygame itself is configured correctly on your system.
+
+- **Issue: Algorithm visualization is too fast/slow.**
+  - **Solution:** Use the `+`/`=` keys to speed up the animation (decrease delay between steps) or the `-` key to slow it down. The current speed setting is displayed in the info panel.
 
 ## Contributing
 Contributions are welcome! If you'd like to contribute, please follow these steps:
