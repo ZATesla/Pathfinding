@@ -281,10 +281,10 @@ def main_gui():
         if mode_text:
             caption = f"{base_caption} | {mode_text}"
         else:
-            bindings = "S:Start, E:End, D:Diag, R:Reset | Algos:K,A,L,B,J | Terrain:1-3 | F5:Save, F6:Load | Enter:Run"
+            bindings = "S:Start, E:End, D:Diag, R:Reset, C:ClearPath | Algos:K,A,L,B,J | Terrain:1-3 | F5:Save, F6:Load | Enter:Run"
             if current_algorithm == "D_STAR_LITE":
                 bindings += ", T:Move Target"
-            caption = f"{base_caption} | {bindings}" # Bindings are now part of base_caption or could be appended if too long
+            caption = f"{base_caption} | {bindings}"
         pygame.display.set_caption(caption)
 
     update_caption() # Initial caption
@@ -459,6 +459,15 @@ def main_gui():
                         animating = False
                         animation_data["animation_phase"] = "stopped"
                         last_path_length, last_visited_count = None, None # Reset stats
+
+                    elif event.key == pygame.K_c: # 'C' to Clear Path Visualizations
+                        if animating: # Stop animation if it's running
+                            animating = False
+                            animation_data["animation_phase"] = "stopped"
+                        grid_instance.clear_visualizations() # Call the new method
+                        last_path_length, last_visited_count = None, None # Clear stats display
+                        print("Path visualizations cleared.")
+
 
                     update_caption() # Update caption after any relevant key press
 

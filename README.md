@@ -13,6 +13,7 @@ This project is a Python application that demonstrates various pathfinding algor
 - Save and Load grid configurations (obstacles, start/end points, terrain, diagonal settings) to/from `grid_config.json`.
 - Adjustable animation speed for algorithm visualization.
 - Displays path length and number of nodes visited/expanded after an algorithm run.
+- Ability to clear path visualizations (path, visited, open set) without resetting the grid.
 - Clear display of the starting point, ending point, obstacles, terrain types, visited nodes, and the final path.
 
 ## Algorithms Implemented
@@ -39,6 +40,7 @@ This project is a Python application that demonstrates various pathfinding algor
 - **L**: Select D* Lite Algorithm.
 - **B**: Select Bidirectional Search.
 - **J**: Select Jump Point Search.
+- **C**: Clear current path visualization (path, visited, open set nodes).
 - **T**: (Only when D* Lite is selected) Enter "Set D* Lite Target Node" mode.
 - **F5**: Save current grid configuration to `grid_config.json`.
 - **F6**: Load grid configuration from `grid_config.json`.

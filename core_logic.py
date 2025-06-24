@@ -102,6 +102,16 @@ class Grid:
             for c in range(self.cols):
                 self.nodes[r][c].reset_algorithm_attributes()
 
+    def clear_visualizations(self):
+        """Resets only the visualization-related attributes of all nodes."""
+        for r in range(self.rows):
+            for c in range(self.cols):
+                node = self.nodes[r][c]
+                node.is_visited_by_algorithm = False
+                node.is_in_open_set_for_algorithm = False
+                node.is_part_of_path = False
+                # Does not reset g, h, f, rhs, previous_node, is_obstacle, terrain_cost
+
     def get_node(self, row, col):
         if 0 <= row < self.rows and 0 <= col < self.cols:
             return self.nodes[row][col]
