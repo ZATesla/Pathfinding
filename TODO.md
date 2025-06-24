@@ -60,7 +60,17 @@
     *   Stops ongoing animation.
     *   Obstacles, start/end, terrain, and other settings remain.
     *   Displayed stats are cleared.
-17. Improve visual distinction between open set, closed set, and path nodes during/after animation.
+17. Improve visual distinction between open set, closed set, and path nodes during/after animation. - **COMPLETED**
+    *   Defined new colors for standard open/closed sets (Orange/Cyan).
+    *   Defined distinct colors for Bidirectional Search:
+        *   Forward Open: Gold
+        *   Forward Closed: Light Blue
+        *   Backward Open: Light Pink
+        *   Backward Closed: Light Green
+        *   Nodes visited by both: Purple
+    *   Updated `Node` class with `is_in_open/closed_set_fwd/bwd` attributes.
+    *   Modified `start_animation_enhanced` and `draw_all_nodes` to use these new flags and colors.
+    *   Adjusted GUI layout to include an info panel at the bottom for text, moving algorithm name and stats there.
 
 ## Testing & Quality:
 18. Expand `test_pathfinding.py` to include more complex scenarios and edge cases for all algorithms (especially D* Lite dynamic updates).

@@ -14,6 +14,7 @@ This project is a Python application that demonstrates various pathfinding algor
 - Adjustable animation speed for algorithm visualization.
 - Displays path length and number of nodes visited/expanded after an algorithm run.
 - Ability to clear path visualizations (path, visited, open set) without resetting the grid.
+- Enhanced visualization with distinct colors for Bidirectional Search frontiers (forward/backward open and closed sets) and meeting points.
 - Clear display of the starting point, ending point, obstacles, terrain types, visited nodes, and the final path.
 
 ## Algorithms Implemented

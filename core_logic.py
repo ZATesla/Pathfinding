@@ -27,6 +27,12 @@ class Node:
         self.is_in_open_set_for_algorithm = False
         self.is_part_of_path = False
 
+        # Attributes for Bidirectional Search visualization
+        self.is_in_open_set_fwd = False
+        self.is_in_closed_set_fwd = False
+        self.is_in_open_set_bwd = False
+        self.is_in_closed_set_bwd = False
+
     def __lt__(self, other):
         return self.f_score < other.f_score
 
@@ -42,6 +48,12 @@ class Node:
         self.is_visited_by_algorithm = False
         self.is_in_open_set_for_algorithm = False
         self.is_part_of_path = False
+
+        # Reset bidirectional flags as well
+        self.is_in_open_set_fwd = False
+        self.is_in_closed_set_fwd = False
+        self.is_in_open_set_bwd = False
+        self.is_in_closed_set_bwd = False
 
     def add_neighbors(self, grid_nodes_matrix, allow_diagonal=True):
         self.neighbors = []
