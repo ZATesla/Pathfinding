@@ -1,8 +1,8 @@
 # Project TODO List
 
 ## General Project Enhancements:
-- [ ] 1. Add detailed usage instructions to `README.md` (how to run, dependencies).
-- [ ] 2. Create `requirements.txt` for easier dependency management (Pygame).
+- [x] 1. Add detailed usage instructions to `README.md` (how to run, dependencies).
+- [x] 2. Create `requirements.txt` for easier dependency management (Pygame).
 - [ ] 3. Implement a settings/configuration file (e.g., `config.json`) for grid size, colors, default algorithm, etc.
 - [ ] 4. Add comments and docstrings throughout `main.py` and `core_logic.py` where they are lacking or could be improved.
 - [ ] 5. Refactor `main.py` to further separate GUI components from event handling logic (e.g., into classes).

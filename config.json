@@ -1,0 +1,38 @@
+{
+    "grid_settings": {
+        "rows": 20,
+        "cols": 20
+    },
+    "window_settings": {
+        "total_width": 600,
+        "total_height": 600,
+        "info_panel_height": 40
+    },
+    "font_settings": {
+        "name": null,
+        "size_info_panel": 24
+    },
+    "colors": {
+        "background": [255, 255, 255],
+        "grid_lines": [200, 200, 200],
+        "info_panel_background": [0, 0, 0],
+        "info_panel_text": [255, 255, 255],
+        "obstacle": [255, 0, 0],
+        "start_node": [0, 255, 0],
+        "end_node": [0, 0, 255],
+        "path": [255, 0, 255],
+        "standard_open_set": [255, 165, 0],
+        "standard_closed_set": [0, 180, 180],
+        "bi_open_fwd": [255, 215, 0],
+        "bi_closed_fwd": [173, 216, 230],
+        "bi_open_bwd": [255, 182, 193],
+        "bi_closed_bwd": [144, 238, 144],
+        "bi_meeting_visited": [128, 0, 128],
+        "terrain_mud": [139, 69, 19],
+        "terrain_water": [30, 144, 255]
+    },
+    "default_settings": {
+        "algorithm_key": "A_STAR",
+        "animation_speed_name": "Normal"
+    }
+}

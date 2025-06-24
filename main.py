@@ -1,17 +1,103 @@
 import pygame
 import json # For saving and loading
+import os # For checking file existence
 
-# --- Constants ---
-WINDOW_WIDTH = 600
-WINDOW_HEIGHT = 600 # Adjusted to make space for UI text at the bottom
-INFO_PANEL_HEIGHT = 40 # Height for the info panel at the bottom
+# --- Default Application Configuration ---
+DEFAULT_CONFIG = {
+    "grid_settings": {
+        "rows": 20,
+        "cols": 20
+    },
+    "window_settings": {
+        "total_width": 600,
+        "total_height": 600,
+        "info_panel_height": 40
+    },
+    "font_settings": {
+        "name": None,
+        "size_info_panel": 24
+    },
+    "colors": {
+        "background": [255, 255, 255], # WHITE
+        "grid_lines": [200, 200, 200], # GREY
+        "info_panel_background": [0, 0, 0],   # BLACK
+        "info_panel_text": [255, 255, 255], # WHITE
+        "obstacle": [255, 0, 0],           # RED_OBSTACLE
+        "start_node": [0, 255, 0],         # GREEN_START
+        "end_node": [0, 0, 255],           # BLUE_END
+        "path": [255, 0, 255],             # MAGENTA_PATH
+        "standard_open_set": [255, 165, 0],  # ORANGE
+        "standard_closed_set": [0, 180, 180], # CYAN
+        "bi_open_fwd": [255, 215, 0],      # GOLD
+        "bi_closed_fwd": [173, 216, 230],   # LIGHT BLUE
+        "bi_open_bwd": [255, 182, 193],    # LIGHT PINK
+        "bi_closed_bwd": [144, 238, 144],   # LIGHT GREEN
+        "bi_meeting_visited": [128, 0, 128],# PURPLE
+        "terrain_mud": [139, 69, 19],
+        "terrain_water": [30, 144, 255]
+    },
+    "default_settings": {
+        "algorithm_key": "A_STAR",
+        "animation_speed_name": "Normal"
+    }
+}
+
+CONFIG_FILE_PATH = "config.json"
+
+def load_app_config(filepath: str, defaults: dict) -> dict:
+    config = defaults.copy() # Start with defaults
+
+    if not os.path.exists(filepath):
+        print(f"Info: Configuration file '{filepath}' not found. Using default settings.")
+        # Optionally, create a default config file here if it doesn't exist
+        try:
+            with open(filepath, 'w') as f:
+                json.dump(defaults, f, indent=4)
+            print(f"Info: Created default configuration file at '{filepath}'.")
+        except IOError as e:
+            print(f"Warning: Could not create default config file '{filepath}': {e}")
+        return config
+
+    try:
+        with open(filepath, 'r') as f:
+            user_config = json.load(f)
+
+        # Deep merge user_config into config (simple one-level merge for nested dicts)
+        for key, value in user_config.items():
+            if key in config and isinstance(config[key], dict) and isinstance(value, dict):
+                config[key].update(value) # Update nested dicts like 'colors', 'grid_settings'
+            else:
+                config[key] = value # Overwrite top-level keys or non-dict values
+        print(f"Info: Loaded configuration from '{filepath}'.")
+
+    except json.JSONDecodeError:
+        print(f"Warning: Error decoding JSON from '{filepath}'. Using default settings.")
+        # config is already defaults, so just return it
+    except IOError as e:
+        print(f"Warning: Could not read config file '{filepath}': {e}. Using default settings.")
+
+    return config
+
+# Load configuration at startup
+APP_CONFIG = load_app_config(CONFIG_FILE_PATH, DEFAULT_CONFIG)
+
+# --- Constants (now potentially from APP_CONFIG) ---
+# These will be replaced in a later step by direct usage of APP_CONFIG values
+WINDOW_WIDTH = APP_CONFIG["window_settings"]["total_width"]
+WINDOW_HEIGHT = APP_CONFIG["window_settings"]["total_height"]
+INFO_PANEL_HEIGHT = APP_CONFIG["window_settings"]["info_panel_height"]
 GAME_WINDOW_HEIGHT = WINDOW_HEIGHT - INFO_PANEL_HEIGHT
 
-GRID_ROWS = 20
-GRID_COLS = 20
-CELL_WIDTH = WINDOW_WIDTH // GRID_COLS
-CELL_HEIGHT = GAME_WINDOW_HEIGHT // GRID_ROWS # Use game window height for grid cells
+GRID_ROWS = APP_CONFIG["grid_settings"]["rows"]
+GRID_COLS = APP_CONFIG["grid_settings"]["cols"]
 
+# CELL_WIDTH and CELL_HEIGHT will be calculated in main_gui after pygame.init
+# CELL_WIDTH = WINDOW_WIDTH // GRID_COLS
+# CELL_HEIGHT = GAME_WINDOW_HEIGHT // GRID_ROWS
+
+# --- Colors (from APP_CONFIG) ---
+# Access via APP_CONFIG["colors"]["color_name"]
+# Example: C_BACKGROUND = tuple(APP_CONFIG["colors"]["background"])
 
 # Core logic imports
 from core_logic import (Node, Grid, dijkstra, a_star, run_d_star_lite, heuristic,
@@ -19,32 +105,12 @@ from core_logic import (Node, Grid, dijkstra, a_star, run_d_star_lite, heuristic
                         d_star_lite_obstacle_change_update, d_star_lite_target_move_update,
                         d_star_lite_initialize, d_star_lite_compute_shortest_path)
 
-# Colors - remain in GUI module
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-GREY = (200, 200, 200) # For grid lines
-RED_OBSTACLE = (255, 0, 0)
-GREEN_START = (0, 255, 0)
-BLUE_END = (0, 0, 255)
-MAGENTA_PATH = (255, 0, 255)
-
-# Standard Algorithm Colors
-COLOR_OPEN_SET = (255, 165, 0)  # Orange
-COLOR_CLOSED_SET = (0, 180, 180) # Cyan
-
-# Bidirectional Algorithm Colors
-COLOR_OPEN_SET_FWD = (255, 215, 0)  # Gold
-COLOR_CLOSED_SET_FWD = (173, 216, 230) # Light Blue
-COLOR_OPEN_SET_BWD = (255, 182, 193)  # Light Pink
-COLOR_CLOSED_SET_BWD = (144, 238, 144) # Light Green
-COLOR_MEETING_VISITED = (128, 0, 128) # Purple for nodes visited by both searches
-
 # Terrain Colors & Costs
-TERRAIN_DEFAULT_COLOR = WHITE
-TERRAIN_MUD_COLOR = (139, 69, 19)
-TERRAIN_WATER_COLOR = (30, 144, 255)
+# TERRAIN_DEFAULT_COLOR will use APP_CONFIG["colors"]["background"]
+# TERRAIN_MUD_COLOR will use APP_CONFIG["colors"]["terrain_mud"]
+# TERRAIN_WATER_COLOR will use APP_CONFIG["colors"]["terrain_water"]
 
-TERRAIN_COSTS = {
+TERRAIN_COSTS = { # This remains as it defines costs, not just colors.
     1: {"cost": 1.0, "name": "Normal"},
     2: {"cost": 3.0, "name": "Mud"},
     3: {"cost": 5.0, "name": "Water"}
@@ -66,7 +132,7 @@ def save_grid_to_file(grid_instance: Grid, filepath: str):
             node = grid_instance.nodes[r][c]
             if node.is_obstacle:
                 config["obstacles"].append([r, c])
-            if node.terrain_cost != TERRAIN_COSTS[1]["cost"]:
+            if node.terrain_cost != TERRAIN_COSTS[1]["cost"]: # Compare against default terrain cost
                 config["terrain_costs"].append({"coords": [r,c], "cost": node.terrain_cost})
     try:
         with open(filepath, 'w') as f:
@@ -91,7 +157,12 @@ def load_grid_from_file(filepath: str, default_rows: int, default_cols: int, cel
         print(f"Error loading grid from {filepath}: {e}")
         return None
 
-    new_grid = Grid(default_rows, default_cols, cell_width, cell_height)
+    # Use grid dimensions from APP_CONFIG if not loading from file, or from file if they exist there?
+    # The current grid_config.json does store dimensions. Let's assume it's for that specific saved grid.
+    # The load_grid_from_file parameters default_rows/cols are now effectively from APP_CONFIG.
+    new_grid = Grid(config.get("dimensions", {}).get("rows", default_rows),
+                    config.get("dimensions", {}).get("cols", default_cols),
+                    cell_width, cell_height)
     new_grid.set_allow_diagonal_movement(config.get("allow_diagonal_movement", True))
     start_pos = config.get("start_node")
     if start_pos and isinstance(start_pos, list) and len(start_pos) == 2:
@@ -137,95 +208,142 @@ def get_gui_node_from_mouse_pos(mouse_pos, grid_instance: Grid, cell_width, cell
     except IndexError:
         return None
 
-def draw_grid_lines(surface, rows, cols, window_width, game_window_height, cell_width, cell_height): # Use game_window_height
-    for r in range(rows + 1):
-        pygame.draw.line(surface, GREY, (0, r * cell_height), (window_width, r * cell_height))
-    for c in range(cols + 1):
-        pygame.draw.line(surface, GREY, (c * cell_width, 0), (c * cell_width, game_window_height)) # Use game_window_height
+def draw_grid_lines(surface, rows, cols, window_total_width, game_area_height, cell_width, cell_height): # Renamed params for clarity
+    grid_line_color = tuple(APP_CONFIG["colors"]["grid_lines"])
+    for r_idx in range(rows + 1): # Renamed r to r_idx
+        pygame.draw.line(surface, grid_line_color, (0, r_idx * cell_height), (window_total_width, r_idx * cell_height))
+    for c_idx in range(cols + 1): # Renamed c to c_idx
+        pygame.draw.line(surface, grid_line_color, (c_idx * cell_width, 0), (c_idx * cell_width, game_area_height))
 
 def draw_all_nodes(surface, grid_instance: Grid):
+    # Color assignments using APP_CONFIG
+    c_background = tuple(APP_CONFIG["colors"]["background"])
+    c_terrain_mud = tuple(APP_CONFIG["colors"]["terrain_mud"])
+    c_terrain_water = tuple(APP_CONFIG["colors"]["terrain_water"])
+    c_meeting_visited = tuple(APP_CONFIG["colors"]["bi_meeting_visited"])
+    c_closed_fwd = tuple(APP_CONFIG["colors"]["bi_closed_fwd"])
+    c_closed_bwd = tuple(APP_CONFIG["colors"]["bi_closed_bwd"])
+    c_standard_closed = tuple(APP_CONFIG["colors"]["standard_closed_set"])
+    c_standard_open = tuple(APP_CONFIG["colors"]["standard_open_set"])
+    c_open_fwd = tuple(APP_CONFIG["colors"]["bi_open_fwd"])
+    c_open_bwd = tuple(APP_CONFIG["colors"]["bi_open_bwd"])
+    c_path = tuple(APP_CONFIG["colors"]["path"])
+    c_obstacle = tuple(APP_CONFIG["colors"]["obstacle"])
+    c_start_node = tuple(APP_CONFIG["colors"]["start_node"])
+    c_end_node = tuple(APP_CONFIG["colors"]["end_node"])
+
     for r in range(grid_instance.rows):
         for c in range(grid_instance.cols):
             node = grid_instance.nodes[r][c]
             rect = pygame.Rect(node.x, node.y, node.width, node.height)
 
-            node_color = WHITE # Default
-            if node.terrain_cost == TERRAIN_COSTS[2]["cost"]: node_color = TERRAIN_MUD_COLOR
-            elif node.terrain_cost == TERRAIN_COSTS[3]["cost"]: node_color = TERRAIN_WATER_COLOR
+            node_color = c_background # Default
+            if node.terrain_cost == TERRAIN_COSTS[2]["cost"]: node_color = c_terrain_mud
+            elif node.terrain_cost == TERRAIN_COSTS[3]["cost"]: node_color = c_terrain_water
 
-            # Visualization states - order matters for precedence
             if node.is_in_closed_set_fwd and node.is_in_closed_set_bwd:
-                node_color = COLOR_MEETING_VISITED # Visited by both
+                node_color = c_meeting_visited
             elif node.is_in_closed_set_fwd:
-                node_color = COLOR_CLOSED_SET_FWD
+                node_color = c_closed_fwd
             elif node.is_in_closed_set_bwd:
-                node_color = COLOR_CLOSED_SET_BWD
-            elif node.is_visited_by_algorithm: # For non-bidirectional
-                node_color = COLOR_CLOSED_SET
+                node_color = c_closed_bwd
+            elif node.is_visited_by_algorithm:
+                node_color = c_standard_closed
 
-            if node.is_in_open_set_fwd and node.is_in_open_set_bwd: # Could use a different color for overlap
-                node_color = ORANGE_OPEN # Defaulting to standard open if in both for now
+            if node.is_in_open_set_fwd and node.is_in_open_set_bwd:
+                node_color = c_standard_open
             elif node.is_in_open_set_fwd:
-                node_color = COLOR_OPEN_SET_FWD
+                node_color = c_open_fwd
             elif node.is_in_open_set_bwd:
-                node_color = COLOR_OPEN_SET_BWD
-            elif node.is_in_open_set_for_algorithm: # For non-bidirectional
-                node_color = COLOR_OPEN_SET
+                node_color = c_open_bwd
+            elif node.is_in_open_set_for_algorithm:
+                node_color = c_standard_open
 
-            if node.is_part_of_path: node_color = MAGENTA_PATH
-            if node.is_obstacle: node_color = RED_OBSTACLE
-            if node == grid_instance.start_node: node_color = GREEN_START
-            if node == grid_instance.end_node: node_color = BLUE_END
+            if node.is_part_of_path: node_color = c_path
+            if node.is_obstacle: node_color = c_obstacle
+            if node == grid_instance.start_node: node_color = c_start_node
+            if node == grid_instance.end_node: node_color = c_end_node
 
             pygame.draw.rect(surface, node_color, rect)
 
-def draw_info_panel(surface, font, algo_name, path_len, visited_count, speed_name):
-    panel_y = GAME_WINDOW_HEIGHT
-    pygame.draw.rect(surface, BLACK, (0, panel_y, WINDOW_WIDTH, INFO_PANEL_HEIGHT))
+def draw_info_panel(surface, font, algo_name, path_len, visited_count, speed_name,
+                    game_window_h, window_total_w, info_panel_h): # Pass dimensions
+    panel_y = game_window_h
+    panel_bg_color = tuple(APP_CONFIG["colors"]["info_panel_background"])
+    panel_text_color = tuple(APP_CONFIG["colors"]["info_panel_text"])
+    pygame.draw.rect(surface, panel_bg_color, (0, panel_y, window_total_w, info_panel_h))
 
     algo_text = f"Algo: {algo_name}"
     speed_text = f"Speed: {speed_name} (+/-)"
     path_text = f"Path: {path_len if path_len is not None and path_len > 0 else 'N/A'}"
     visited_text = f"Visited: {visited_count if visited_count is not None else 'N/A'}"
 
-    algo_surf = font.render(algo_text, True, WHITE)
-    speed_surf = font.render(speed_text, True, WHITE)
-    path_surf = font.render(path_text, True, WHITE)
-    visited_surf = font.render(visited_text, True, WHITE)
+    algo_surf = font.render(algo_text, True, panel_text_color)
+    speed_surf = font.render(speed_text, True, panel_text_color)
+    path_surf = font.render(path_text, True, panel_text_color)
+    visited_surf = font.render(visited_text, True, panel_text_color)
 
     surface.blit(algo_surf, (5, panel_y + 5))
     surface.blit(speed_surf, (algo_surf.get_width() + 15, panel_y + 5))
-    surface.blit(path_surf, (WINDOW_WIDTH - visited_surf.get_width() - path_surf.get_width() - 15, panel_y + 5))
-    surface.blit(visited_surf, (WINDOW_WIDTH - visited_surf.get_width() - 5, panel_y + 5))
+    surface.blit(path_surf, (window_total_w - visited_surf.get_width() - path_surf.get_width() - 15, panel_y + 5))
+    surface.blit(visited_surf, (window_total_w - visited_surf.get_width() - 5, panel_y + 5))
 
 
 def main_gui():
     pygame.init()
     pygame.font.init()
-    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    clock = pygame.time.Clock()
-    ui_font = pygame.font.Font(None, 24) # Smaller font for info panel
 
-    grid_instance = Grid(GRID_ROWS, GRID_COLS, CELL_WIDTH, CELL_HEIGHT)
+    # Get dimensions from APP_CONFIG
+    conf_grid_rows = APP_CONFIG["grid_settings"]["rows"]
+    conf_grid_cols = APP_CONFIG["grid_settings"]["cols"]
+    conf_window_width = APP_CONFIG["window_settings"]["total_width"]
+    conf_window_height = APP_CONFIG["window_settings"]["total_height"]
+    conf_info_panel_height = APP_CONFIG["window_settings"]["info_panel_height"]
+    conf_game_window_height = conf_window_height - conf_info_panel_height
+
+    conf_cell_width = conf_window_width // conf_grid_cols
+    conf_cell_height = conf_game_window_height // conf_grid_rows
+
+    font_name = APP_CONFIG["font_settings"]["name"]
+    font_size_info = APP_CONFIG["font_settings"]["size_info_panel"]
+    ui_font = pygame.font.Font(font_name, font_size_info)
+
+
+    screen = pygame.display.set_mode((conf_window_width, conf_window_height))
+    clock = pygame.time.Clock()
+
+    grid_instance = Grid(conf_grid_rows, conf_grid_cols, conf_cell_width, conf_cell_height)
+
+    # Dynamically calculated cell dimensions based on current grid and window config
+    current_cell_width = conf_window_width // grid_instance.cols
+    current_cell_height = conf_game_window_height // grid_instance.rows
+
     setting_start, setting_end, setting_target_d_lite, painting_terrain_type = False, False, False, 0
     d_star_lite_pq, d_star_lite_open_set_tracker, d_star_lite_initialized_run = [], set(), False
     last_path_length, last_visited_count = None, None
-    current_algorithm = "A_STAR"
+    current_algorithm = APP_CONFIG["default_settings"]["algorithm_key"]
 
     ALGORITHMS = {
         "A_STAR": a_star, "DIJKSTRA": dijkstra, "D_STAR_LITE": run_d_star_lite,
         "BIDIRECTIONAL": bidirectional_search, "JPS": jps_search
     }
-    ALGO_NAMES = {
+    ALGO_NAMES = { # These are for display, can remain hardcoded or moved to config if desired (later)
         "A_STAR": "A*", "DIJKSTRA": "Dijkstra", "D_STAR_LITE": "D* Lite",
         "BIDIRECTIONAL": "Bidirectional", "JPS": "JPS"
     }
-    ANIMATION_SPEED_SETTINGS = [
+    ANIMATION_SPEED_SETTINGS = [ # Structure for speeds, can remain hardcoded
         {"name": "Instant", "delay": 0}, {"name": "Fast", "delay": 10},
         {"name": "Normal", "delay": 25}, {"name": "Slow", "delay": 50},
         {"name": "Very Slow", "delay": 100}
     ]
-    current_speed_index = 2
+
+    # Set initial speed from config
+    default_speed_name = APP_CONFIG["default_settings"]["animation_speed_name"]
+    current_speed_index = 0 # Default to first speed if name not found
+    for i, speed_setting in enumerate(ANIMATION_SPEED_SETTINGS):
+        if speed_setting["name"] == default_speed_name:
+            current_speed_index = i
+            break
     animation_delay_ms = ANIMATION_SPEED_SETTINGS[current_speed_index]["delay"]
 
     animating = False
@@ -329,13 +447,19 @@ def main_gui():
 
                     elif event.key == pygame.K_F5: save_grid_to_file(grid_instance, "grid_config.json")
                     elif event.key == pygame.K_F6:
-                        loaded_grid = load_grid_from_file("grid_config.json", GRID_ROWS, GRID_COLS, CELL_WIDTH, CELL_HEIGHT)
+                        loaded_grid = load_grid_from_file("grid_config.json",
+                                                        conf_grid_rows, conf_grid_cols,
+                                                        conf_cell_width, conf_cell_height)
                         if loaded_grid:
                             grid_instance = loaded_grid
+                            # Recalculate cell dimensions for the potentially new grid topology
+                            current_cell_width = conf_window_width // grid_instance.cols
+                            current_cell_height = conf_game_window_height // grid_instance.rows
+
                             setting_start,setting_end,setting_target_d_lite,painting_terrain_type = False,False,False,0
                             d_star_lite_initialized_run = False
                             d_star_lite_pq.clear(); d_star_lite_open_set_tracker.clear()
-                            animating = False; grid_instance.reset_algorithm_states()
+                            animating = False; grid_instance.reset_algorithm_states() # existing reset is good
                             last_path_length, last_visited_count = None, None
                             print("Grid loaded.")
                         else: print("Failed to load grid.")
@@ -389,7 +513,12 @@ def main_gui():
                             last_path_length, last_visited_count = None, None
 
                     elif event.key == pygame.K_r:
-                        grid_instance = Grid(GRID_ROWS, GRID_COLS, CELL_WIDTH, CELL_HEIGHT)
+                        grid_instance = Grid(APP_CONFIG["grid_settings"]["rows"],
+                                             APP_CONFIG["grid_settings"]["cols"],
+                                             conf_window_width // APP_CONFIG["grid_settings"]["cols"],
+                                             conf_game_window_height // APP_CONFIG["grid_settings"]["rows"])
+                        current_cell_width = conf_window_width // grid_instance.cols
+                        current_cell_height = conf_game_window_height // grid_instance.rows
                         setting_start,setting_end,setting_target_d_lite,painting_terrain_type = False,False,False,0
                         d_star_lite_initialized_run = False
                         d_star_lite_pq.clear(); d_star_lite_open_set_tracker.clear()
@@ -405,9 +534,9 @@ def main_gui():
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     mouse_pos = pygame.mouse.get_pos()
-                    if mouse_pos[1] >= GAME_WINDOW_HEIGHT: continue # Click in info panel ignored for grid ops
+                    if mouse_pos[1] >= conf_game_window_height: continue # Click in info panel ignored for grid ops
 
-                    clicked_node = get_gui_node_from_mouse_pos(mouse_pos, grid_instance, CELL_WIDTH, CELL_HEIGHT)
+                    clicked_node = get_gui_node_from_mouse_pos(mouse_pos, grid_instance, current_cell_width, current_cell_height)
                     if clicked_node:
                         if setting_start:
                             if grid_instance.start_node: grid_instance.start_node.terrain_cost = TERRAIN_COSTS[1]["cost"]
@@ -513,14 +642,17 @@ def main_gui():
                 animating = False
                 update_gui_caption() # Update caption to show normal bindings again
 
-        screen.fill(WHITE)
-        draw_all_nodes(screen, grid_instance)
-        draw_grid_lines(screen, GRID_ROWS, GRID_COLS, WINDOW_WIDTH, GAME_WINDOW_HEIGHT, CELL_WIDTH, CELL_HEIGHT) # Use GAME_WINDOW_HEIGHT
+        screen.fill(tuple(APP_CONFIG["colors"]["background"]))
+        draw_all_nodes(screen, grid_instance) # Uses APP_CONFIG internally for colors
+        draw_grid_lines(screen, grid_instance.rows, grid_instance.cols,
+                        conf_window_width, conf_game_window_height,
+                        current_cell_width, current_cell_height)
 
         # Draw Info Panel
         draw_info_panel(screen, ui_font, ALGO_NAMES[current_algorithm],
                         last_path_length, last_visited_count,
-                        ANIMATION_SPEED_SETTINGS[current_speed_index]["name"])
+                        ANIMATION_SPEED_SETTINGS[current_speed_index]["name"],
+                        conf_game_window_height, conf_window_width, conf_info_panel_height)
 
         pygame.display.flip()
         clock.tick(60)

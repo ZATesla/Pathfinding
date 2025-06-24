@@ -62,6 +62,19 @@ This project is a Python application that demonstrates various pathfinding algor
   ```
   This will install Pygame and any other necessary dependencies.
 
+### Application Configuration (`config.json`)
+This application uses a `config.json` file (located in the root of the project) to store various settings. You can customize the application's appearance and default behaviors by editing this file.
+
+Key configurable settings include:
+- Default grid dimensions (rows, columns).
+- Window size (width, height, info panel height).
+- Colors used for UI elements, grid, and algorithm visualizations.
+- Default algorithm selected on startup.
+- Default animation speed.
+- Font for the info panel.
+
+If `config.json` is missing or contains invalid JSON, it will be automatically recreated with default values when the application starts.
+
 ### Running the Application
 1.  **Navigate to the project directory** in your terminal.
 2.  **(Recommended) Create and activate a virtual environment:**
