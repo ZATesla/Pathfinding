@@ -56,10 +56,11 @@ This project is a Python application that demonstrates various pathfinding algor
 
 ### Prerequisites
 - Python 3.x installed on your system.
-- Pygame library. You can install it using pip:
+- Required Python packages are listed in `requirements.txt`. You can install them using pip:
   ```bash
-  pip install pygame
+  pip install -r requirements.txt
   ```
+  This will install Pygame and any other necessary dependencies.
 
 ### Running the Application
 1.  Navigate to the project directory in your terminal.
