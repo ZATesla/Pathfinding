@@ -53,15 +53,60 @@ This project is a Python application that demonstrates various pathfinding algor
 - **-**: Decrease animation speed (increase delay).
 
 ## Usage
-1.  Ensure you have Python and Pygame installed.
-    ```bash
-    pip install pygame
-    ```
-2.  Run the application:
+
+### Prerequisites
+- Python 3.x installed on your system.
+- Pygame library. You can install it using pip:
+  ```bash
+  pip install pygame
+  ```
+
+### Running the Application
+1.  Navigate to the project directory in your terminal.
+2.  Run the application using:
     ```bash
     python main.py
     ```
-3.  Use the key controls listed above to interact with the visualizer.
+3.  A window titled "Pathfinding Visualizer" will open, displaying a grid. This is where you'll interact with the pathfinding algorithms. The window caption also provides a quick reference to common key bindings and the current mode.
+
+### Getting Started with the Visualizer
+Here's a typical workflow to visualize your first path:
+
+1.  **Set the Start Node**:
+    - Press the `S` key. The window caption will indicate you are in "Set Start" mode.
+    - Click on any cell in the grid. This cell will turn green, marking it as the starting point for the pathfinding algorithm.
+2.  **Set the End Node**:
+    - Press the `E` key. The caption will switch to "Set End" mode.
+    - Click on a different cell. This cell will turn blue, marking it as the destination.
+3.  **Add Obstacles (Optional)**:
+    - By default (or after pressing `ESC` or `0` to exit other modes), clicking on any empty grid cell will toggle it as an obstacle. Obstacles are shown in red and cannot be traversed by the algorithms. Click again to remove an obstacle.
+4.  **Choose an Algorithm**:
+    - You can select different pathfinding algorithms using their respective keys:
+        - `K` for Dijkstra's Algorithm
+        - `A` for A* (A-Star)
+        - `L` for D* Lite
+        - `B` for Bidirectional Search
+        - `J` for Jump Point Search (currently a placeholder)
+    - The currently selected algorithm is displayed in the info panel at the bottom of the screen.
+5.  **Run the Visualization**:
+    - Press the `Enter` key.
+    - The selected algorithm will start searching for a path from the start node to the end node.
+    - You will see nodes being "visited" (typically colored cyan/light blue or other colors for bidirectional search) and nodes in the "open set" (orange/gold/pink) as the algorithm explores the grid.
+    - Once the path is found, it will be highlighted (usually in magenta). If no path exists, this will be indicated.
+    - Statistics like path length and nodes visited will appear in the info panel.
+
+### Other Interactions
+- **Terrain**: Press `1`, `2`, or `3` to paint different terrain types (Normal, Mud, Water) with varying movement costs. Click on cells to apply the selected terrain. Press `0` or `ESC` to return to obstacle mode.
+- **Diagonal Movement**: Press `D` to toggle diagonal movements for the algorithms. The current status (ON/OFF) is shown in the window caption.
+- **Animation Speed**: Use `+`/`=` to speed up the animation and `-` to slow it down. The current speed setting is displayed.
+- **Saving/Loading**: Press `F5` to save your current grid setup (start/end points, obstacles, terrain) to `grid_config.json`. Press `F6` to load a previously saved configuration.
+- **Clearing**: Press `C` to clear the current path, visited nodes, and open set highlights without resetting your obstacles or start/end points. Press `R` to reset the entire grid to its default state.
+
+For a full list of controls and their functions, refer to the **Key Controls** section below.
+
+## Key Controls
+(This section remains as is)
+... (rest of the Key Controls section) ...
 
 ## Contributing
 Contributions are welcome! If you'd like to contribute, please follow these steps:
